@@ -1,0 +1,35 @@
+[package]
+name = "gt"
+version = "0.1.0"
+edition = "2021"
+description = "Fast stacked Git branches and PRs"
+license = "MIT"
+authors = ["Cesar Ferreira"]
+
+[[bin]]
+name = "gt"
+path = "src/main.rs"
+
+[dependencies]
+# CLI
+clap = { version = "4", features = ["derive"] }
+
+# Git
+git2 = "0.19"
+
+# Serialization
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+
+# Terminal UI
+dialoguer = { version = "0.11", features = ["fuzzy-select"] }
+console = "0.15"
+colored = "2"
+
+# Error handling
+anyhow = "1"
+thiserror = "1"
+
+# Config
+toml = "0.8"
+dirs = "5"
