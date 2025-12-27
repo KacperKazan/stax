@@ -248,6 +248,7 @@ stax uses the same metadata format as freephite and supports similar commands:
 | `stax create <name>` | `c`, `bc` | Create stacked branch |
 | `stax checkout` | `co`, `bco` | Interactive branch picker |
 | `stax modify` | `m` | Stage all + amend current commit |
+| `stax rename` | `b r` | Rename branch and optionally edit commit message |
 | `stax branch track` | | Track an existing branch |
 | `stax branch reparent` | | Change parent of a branch |
 | `stax branch delete` | | Delete a branch |
@@ -276,6 +277,8 @@ stax uses the same metadata format as freephite and supports similar commands:
 - `stax create -m "msg"` - Create branch with commit message
 - `stax create -a` - Stage all changes
 - `stax create -am "msg"` - Stage all and commit
+- `stax rename new-name` - Rename current branch
+- `stax rename -e` - Rename and edit commit message
 - `stax submit --draft` - Create PRs as drafts
 - `stax submit --reviewers alice,bob` - Add reviewers
 - `stax sync --restack` - Sync and rebase all branches
