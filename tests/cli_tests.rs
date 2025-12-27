@@ -512,3 +512,31 @@ fn gt_parity_submit_command() {
     let output = stax(&["submit", "--help"]);
     assert!(output.status.success());
 }
+
+// ============================================================================
+// Rename Command Tests
+// ============================================================================
+
+#[test]
+fn test_rename_help() {
+    let output = stax(&["rename", "--help"]);
+    assert!(output.status.success());
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    assert!(stdout.contains("Rename"));
+    assert!(stdout.contains("--edit"));
+}
+
+#[test]
+fn test_branch_rename_help() {
+    let output = stax(&["branch", "rename", "--help"]);
+    assert!(output.status.success());
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    assert!(stdout.contains("Rename"));
+}
+
+#[test]
+fn test_branch_rename_alias() {
+    // b r should work as alias
+    let output = stax(&["b", "r", "--help"]);
+    assert!(output.status.success());
+}

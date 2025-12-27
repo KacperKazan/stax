@@ -948,6 +948,81 @@ fn test_restack_all_flag() {
 }
 
 // =============================================================================
+// Rename Tests
+// =============================================================================
+
+#[test]
+fn test_branch_rename() {
+    let repo = TestRepo::new();
+
+    // Create a branch
+    repo.run_stax(&["bc", "old-name"]);
+    let old_branch = repo.current_branch();
+    assert!(old_branch.contains("old-name"));
+
+    // Rename it
+    let output = repo.run_stax(&["rename", "new-name"]);
+    assert!(output.status.success(), "Failed: {}", TestRepo::stderr(&output));
+
+    // Should now be on new branch
+    let new_branch = repo.current_branch();
+    assert!(new_branch.contains("new-name"), "Expected branch with 'new-name', got: {}", new_branch);
+    assert!(!new_branch.contains("old-name"));
+
+    // Old branch should not exist
+    let branches = repo.list_branches();
+    assert!(!branches.iter().any(|b| b.contains("old-name")), "Old branch should not exist");
+}
+
+#[test]
+fn test_branch_rename_updates_children() {
+    let repo = TestRepo::new();
+
+    // Create parent branch
+    repo.run_stax(&["bc", "parent-branch"]);
+    let parent_name = repo.current_branch();
+
+    // Create child branch
+    repo.run_stax(&["bc", "child-branch"]);
+    let child_name = repo.current_branch();
+
+    // Go back to parent and rename it
+    repo.run_stax(&["checkout", &parent_name]);
+    let output = repo.run_stax(&["rename", "renamed-parent"]);
+    assert!(output.status.success(), "Failed: {}", TestRepo::stderr(&output));
+
+    let new_parent = repo.current_branch();
+
+    // Check child's parent was updated in JSON output
+    repo.run_stax(&["checkout", &child_name]);
+    let output = repo.run_stax(&["status", "--json"]);
+    let stdout = TestRepo::stdout(&output);
+    let json: Value = serde_json::from_str(&stdout).unwrap();
+    let branches = json["branches"].as_array().unwrap();
+    let child = branches
+        .iter()
+        .find(|b| b["name"].as_str().unwrap() == child_name)
+        .expect("Should find child branch");
+
+    assert_eq!(
+        child["parent"].as_str().unwrap(),
+        new_parent,
+        "Child's parent should be updated to new name"
+    );
+}
+
+#[test]
+fn test_branch_rename_trunk_fails() {
+    let repo = TestRepo::new();
+
+    // Try to rename trunk (should fail)
+    let output = repo.run_stax(&["rename", "not-main"]);
+    assert!(!output.status.success(), "Should fail when renaming trunk");
+    let stderr = TestRepo::stderr(&output);
+    assert!(stderr.contains("trunk") || stderr.contains("Cannot rename"));
+}
+
+// =============================================================================
 // Doctor/Config Tests
 // =============================================================================
 

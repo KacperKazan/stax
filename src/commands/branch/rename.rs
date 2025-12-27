@@ -4,10 +4,12 @@ use crate::git::GitRepo;
 use anyhow::{Context, Result};
 use colored::Colorize;
 use dialoguer::{theme::ColorfulTheme, Confirm, Input};
+use std::io::IsTerminal;
 use std::process::Command;
 
 /// Rename the current branch and optionally edit the commit message
 pub fn run(new_name: Option<String>, edit_message: bool) -> Result<()> {
+    let is_interactive = std::io::stdin().is_terminal();
     let repo = GitRepo::open()?;
     let old_name = repo.current_branch()?;
     let trunk = repo.trunk_branch()?;
@@ -22,6 +24,9 @@ pub fn run(new_name: Option<String>, edit_message: bool) -> Result<()> {
     let new_name = match new_name {
         Some(name) => config.format_branch_name(&name),
         None => {
+            if !is_interactive {
+                anyhow::bail!("New branch name required in non-interactive mode");
+            }
             let input: String = Input::with_theme(&ColorfulTheme::default())
                 .with_prompt("New branch name")
                 .interact_text()?;
@@ -83,7 +88,7 @@ pub fn run(new_name: Option<String>, edit_message: bool) -> Result<()> {
     let remote_name = config.remote_name();
     let remote_branches = crate::remote::get_remote_branches(&workdir, remote_name).unwrap_or_default();
 
-    if remote_branches.contains(&old_name) {
+    if remote_branches.contains(&old_name) && is_interactive {
         let push_new = Confirm::with_theme(&ColorfulTheme::default())
             .with_prompt(format!(
                 "Push '{}' and delete old remote '{}'?",
@@ -128,11 +133,13 @@ pub fn run(new_name: Option<String>, edit_message: bool) -> Result<()> {
     // 5. Optionally edit commit message
     let should_edit = if edit_message {
         true
-    } else {
+    } else if is_interactive {
         Confirm::with_theme(&ColorfulTheme::default())
             .with_prompt("Edit the commit message?")
             .default(false)
             .interact()?
+    } else {
+        false
     };
 
     if should_edit {
