@@ -146,6 +146,7 @@ impl Stack {
     }
 
     /// Get siblings of a branch (other branches with the same parent)
+    #[allow(dead_code)] // Useful utility for future features
     pub fn get_siblings(&self, branch: &str) -> Vec<String> {
         let branch_info = match self.branches.get(branch) {
             Some(b) => b,

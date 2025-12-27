@@ -10,7 +10,7 @@ use ratatui::{
 /// Render the reorder preview panel (replaces diff panel in reorder mode)
 pub fn render_reorder_preview(f: &mut Frame, app: &App, area: Rect) {
     let content = if let Some(state) = &app.reorder_state {
-        build_preview_content(state)
+        build_preview_content(state, app)
     } else {
         vec![Line::from("No reorder in progress")]
     };
@@ -32,12 +32,12 @@ pub fn render_reorder_preview(f: &mut Frame, app: &App, area: Rect) {
     f.render_widget(paragraph, area);
 }
 
-fn build_preview_content(state: &ReorderState) -> Vec<Line<'static>> {
+fn build_preview_content(state: &ReorderState, app: &App) -> Vec<Line<'static>> {
     let mut lines = Vec::new();
 
     // Show what's being moved
-    let moving_branch = state.pending_order.get(state.moving_index)
-        .cloned()
+    let moving_branch = state.pending_chain.get(state.moving_index)
+        .map(|e| e.name.clone())
         .unwrap_or_default();
     
     lines.push(Line::from(vec![
@@ -49,8 +49,8 @@ fn build_preview_content(state: &ReorderState) -> Vec<Line<'static>> {
     ]));
 
     // Show position change
-    let original_pos = state.original_order.iter()
-        .position(|b| b == &moving_branch)
+    let original_pos = state.original_chain.iter()
+        .position(|e| e.name == moving_branch)
         .map(|p| p + 1)
         .unwrap_or(0);
     let new_pos = state.moving_index + 1;
@@ -62,7 +62,7 @@ fn build_preview_content(state: &ReorderState) -> Vec<Line<'static>> {
                 format!("{} → {}", original_pos, new_pos),
                 Style::default().fg(Color::Yellow),
             ),
-            Span::styled(" (among siblings)", Style::default().fg(Color::DarkGray)),
+            Span::styled(" (in stack)", Style::default().fg(Color::DarkGray)),
         ]));
     } else {
         lines.push(Line::from(vec![
@@ -73,55 +73,93 @@ fn build_preview_content(state: &ReorderState) -> Vec<Line<'static>> {
 
     lines.push(Line::from(""));
 
-    // Show sibling order comparison
+    // Show stack chain comparison
     lines.push(Line::from(vec![
         Span::styled(
-            "Sibling Order:",
+            "Stack Chain:",
             Style::default().add_modifier(Modifier::BOLD),
         ),
     ]));
 
     lines.push(Line::from(""));
 
-    // Original order
+    // Original chain
     lines.push(Line::from(vec![
-        Span::styled("Before: ", Style::default().fg(Color::DarkGray)),
+        Span::styled("Before:", Style::default().fg(Color::DarkGray)),
     ]));
-    for (i, name) in state.original_order.iter().enumerate() {
-        let style = if name == &moving_branch {
+    
+    // Show trunk at start
+    let trunk = &app.stack.trunk;
+    lines.push(Line::from(vec![
+        Span::raw("  "),
+        Span::styled(trunk.clone(), Style::default().fg(Color::Blue)),
+        Span::styled(" (trunk)", Style::default().fg(Color::DarkGray)),
+    ]));
+    
+    for entry in &state.original_chain {
+        let style = if entry.name == moving_branch {
             Style::default().fg(Color::Yellow).add_modifier(Modifier::BOLD)
         } else {
             Style::default().fg(Color::White)
         };
         lines.push(Line::from(vec![
-            Span::raw("  "),
-            Span::styled(format!("{}. ", i + 1), Style::default().fg(Color::DarkGray)),
-            Span::styled(name.clone(), style),
+            Span::styled("  └─ ", Style::default().fg(Color::DarkGray)),
+            Span::styled(entry.name.clone(), style),
         ]));
     }
 
     lines.push(Line::from(""));
 
-    // New order
+    // New chain
     lines.push(Line::from(vec![
-        Span::styled("After:  ", Style::default().fg(Color::DarkGray)),
+        Span::styled("After:", Style::default().fg(Color::DarkGray)),
     ]));
-    for (i, name) in state.pending_order.iter().enumerate() {
+    
+    lines.push(Line::from(vec![
+        Span::raw("  "),
+        Span::styled(trunk.clone(), Style::default().fg(Color::Blue)),
+        Span::styled(" (trunk)", Style::default().fg(Color::DarkGray)),
+    ]));
+    
+    for (i, entry) in state.pending_chain.iter().enumerate() {
         let is_moving = i == state.moving_index;
         let style = if is_moving {
             Style::default().fg(Color::Green).add_modifier(Modifier::BOLD)
         } else {
             Style::default().fg(Color::White)
         };
-        let prefix = if is_moving { "► " } else { "  " };
+        let prefix = if is_moving { "  ► " } else { "  └─ " };
+        let prefix_style = if is_moving { Color::Green } else { Color::DarkGray };
         lines.push(Line::from(vec![
-            Span::styled(prefix, Style::default().fg(Color::Green)),
-            Span::styled(format!("{}. ", i + 1), Style::default().fg(Color::DarkGray)),
-            Span::styled(name.clone(), style),
+            Span::styled(prefix, Style::default().fg(prefix_style)),
+            Span::styled(entry.name.clone(), style),
         ]));
     }
 
     lines.push(Line::from(""));
+
+    // Show reparent operations
+    let reparent_ops = app.get_reparent_operations();
+    if !reparent_ops.is_empty() {
+        lines.push(Line::from(vec![
+            Span::styled(
+                "Reparent operations:",
+                Style::default().add_modifier(Modifier::BOLD),
+            ),
+        ]));
+        lines.push(Line::from(""));
+        
+        for (branch, new_parent) in &reparent_ops {
+            lines.push(Line::from(vec![
+                Span::styled("  • ", Style::default().fg(Color::Yellow)),
+                Span::styled(branch.clone(), Style::default().fg(Color::Cyan)),
+                Span::styled(" → parent: ", Style::default().fg(Color::DarkGray)),
+                Span::styled(new_parent.clone(), Style::default().fg(Color::Blue)),
+            ]));
+        }
+        lines.push(Line::from(""));
+    }
+
     lines.push(Line::from(""));
 
     // Show commits to rebase
@@ -210,7 +248,7 @@ fn build_preview_content(state: &ReorderState) -> Vec<Line<'static>> {
     lines.push(Line::from(""));
 
     // Instructions
-    let has_changes = state.original_order != state.pending_order;
+    let has_changes = state.original_chain != state.pending_chain;
     if has_changes {
         lines.push(Line::from(vec![
             Span::styled(
@@ -221,7 +259,7 @@ fn build_preview_content(state: &ReorderState) -> Vec<Line<'static>> {
     } else {
         lines.push(Line::from(vec![
             Span::styled(
-                "Use ⇧↑/⇧↓ to move the selected branch",
+                "Use Shift+↑/↓ to move the branch in the stack",
                 Style::default().fg(Color::DarkGray),
             ),
         ]));

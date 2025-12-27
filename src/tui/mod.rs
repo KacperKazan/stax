@@ -407,8 +407,11 @@ fn run_external_command(app: &mut App, args: &[&str]) -> Result<()> {
     Ok(())
 }
 
-/// Apply reorder changes - update metadata and trigger restack
+/// Apply reorder changes - reparent branches and trigger restack
 fn apply_reorder_changes(app: &mut App) -> Result<()> {
+    // Get the reparent operations before clearing state
+    let reparent_ops = app.get_reparent_operations();
+    
     let state = match app.reorder_state.take() {
         Some(s) => s,
         None => {
@@ -418,27 +421,37 @@ fn apply_reorder_changes(app: &mut App) -> Result<()> {
     };
 
     // Check if there are actual changes
-    if state.original_order == state.pending_order {
+    if state.original_chain == state.pending_chain {
         app.set_status("No changes to apply");
         return Ok(());
     }
 
-    // For sibling reordering, we need to update the parent references
-    // Since siblings all have the same parent, the reorder affects which
-    // branches depend on which. In a typical stacked workflow, the order
-    // of siblings under the same parent determines the visual order.
+    if reparent_ops.is_empty() {
+        app.set_status("No reparenting needed");
+        return Ok(());
+    }
+
+    app.set_status(format!("Reparenting {} branch(es)...", reparent_ops.len()));
     
-    // Note: For sibling reordering, we're primarily changing the display order.
-    // The actual parent-child relationships don't change for simple sibling reordering.
-    // If we want branches to stack on each other differently, that's a reparent operation.
+    // Apply each reparent operation using the CLI command
+    for (branch, new_parent) in &reparent_ops {
+        let result = run_external_command(app, &[
+            "branch", "reparent", 
+            "--branch", branch, 
+            "--parent", new_parent
+        ]);
+        
+        if let Err(e) = result {
+            app.set_status(format!("✗ Failed to reparent {}: {}", branch, e));
+            return Ok(());
+        }
+    }
     
-    // For now, let's trigger a restack to ensure everything is up to date
-    app.set_status("Applying reorder and restacking...");
-    
-    // Run restack for the affected branches
+    // Now restack all affected branches
+    app.set_status("Restacking affected branches...");
     run_external_command(app, &["restack", "--quiet"])?;
     
-    app.set_status("✓ Reorder applied and restacked");
+    app.set_status(format!("✓ Reparented {} branch(es) and restacked", reparent_ops.len()));
     
     Ok(())
 }
