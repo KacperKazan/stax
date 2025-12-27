@@ -18,14 +18,14 @@ pub fn render(f: &mut Frame, app: &App) {
         ])
         .split(f.area());
 
-    // Main content: stack tree (left) + details (right)
+    // Main content: details (top) + stack tree (bottom)
     let main_chunks = Layout::default()
-        .direction(Direction::Horizontal)
-        .constraints([Constraint::Percentage(50), Constraint::Percentage(50)])
+        .direction(Direction::Vertical)
+        .constraints([Constraint::Percentage(40), Constraint::Percentage(60)])
         .split(chunks[0]);
 
-    render_stack_tree(f, app, main_chunks[0]);
-    render_details(f, app, main_chunks[1]);
+    render_details(f, app, main_chunks[0]);
+    render_stack_tree(f, app, main_chunks[1]);
 
     // Status bar
     render_status_bar(f, app, chunks[1]);
