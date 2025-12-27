@@ -39,6 +39,7 @@ Each branch is a focused PR. Reviewers see small diffs. You ship faster.
 ## Why stax?
 
 - **Fast** - Native Rust binary, runs in ~21ms (17x faster than alternatives)
+- **Interactive TUI** - Full terminal UI with diff viewer, reorder mode, and keyboard shortcuts
 - **Visual** - Beautiful tree rendering showing your entire stack at a glance
 - **Smart** - Tracks what needs rebasing, shows PR status, handles conflicts gracefully
 - **Compatible** - Uses same metadata format as freephite (migrate instantly)
@@ -73,10 +74,49 @@ stax ss
 stax rs --restack
 ```
 
+## Interactive TUI
+
+Run `stax` with no arguments to launch the interactive terminal UI:
+
+```bash
+stax
+```
+
+<!-- TODO: Add TUI screenshot here -->
+
+**TUI Features:**
+- Visual stack tree with PR status, sync indicators, and commit counts
+- Full diff viewer for each branch
+- Keyboard-driven: checkout, restack, submit PRs, create/rename/delete branches
+- **Reorder mode**: Rearrange branches in your stack with `o` then `Shift+↑/↓`
+
+| Key | Action |
+|-----|--------|
+| `↑/↓` | Navigate branches |
+| `Enter` | Checkout branch |
+| `r` | Restack selected branch |
+| `s` | Submit stack |
+| `o` | Enter reorder mode (reparent branches) |
+| `n` | Create new branch |
+| `d` | Delete branch |
+| `?` | Show all keybindings |
+
+### Reorder Mode
+
+Rearrange branches within your stack without manually running reparent commands:
+
+<!-- TODO: Add reorder mode screenshot here -->
+
+1. Select a branch and press `o` to enter reorder mode
+2. Use `Shift+↑/↓` to move the branch up or down in the stack
+3. Preview shows which reparent operations will happen
+4. Press `Enter` to apply changes and automatically restack
+
 ## Core Commands
 
 | Command | What it does |
 |---------|--------------|
+| `stax` | Launch interactive TUI |
 | `stax ls` | Show your stack with PR status and what needs rebasing |
 | `stax create <name>` | Create a new branch stacked on current |
 | `stax ss` | Submit stack - push all branches and create/update PRs |
@@ -263,6 +303,11 @@ stax uses the same metadata format as freephite and supports similar commands:
 | `stax top` | | Move to stack tip |
 | `stax bottom` | | Move to stack base |
 | `stax trunk` | `t` | Switch to trunk |
+
+### Interactive
+| Command | Description |
+|---------|-------------|
+| `stax` | Launch interactive TUI |
 
 ### Utilities
 | Command | Description |
