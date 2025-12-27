@@ -84,7 +84,7 @@ pub fn run(
                     collect_display_branches_with_nesting(
                         &stack,
                         root,
-                        i,
+                        i,  // column
                         &mut display_branches,
                         &mut max_column,
                     );
@@ -103,7 +103,7 @@ pub fn run(
                         if i > 0 { Some(display_branches[i - 1].column) } else { None };
                     let needs_corner = prev_branch_col.is_some_and(|pc| pc > db.column);
 
-                    // Build tree graphics (plain text for dialoguer compatibility)
+                    // Build tree graphics (no colors - dialoguer doesn't handle ANSI well)
                     let mut tree = String::new();
                     let mut visual_width = 0;
 
@@ -155,7 +155,7 @@ pub fn run(
                     branch_names.push(db.name.clone());
                 }
 
-                // Add trunk with matching style
+                // Add trunk with matching style (no colors - dialoguer doesn't handle ANSI well)
                 let is_trunk_current = stack.trunk == current;
                 let mut trunk_tree = String::new();
                 let mut trunk_visual_width = 0;
