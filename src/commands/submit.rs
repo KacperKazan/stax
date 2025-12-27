@@ -60,11 +60,7 @@ pub fn run(
 
     // Validation phase
     if !quiet {
-        println!(
-            "{}",
-            "Validating that this stack is ready to submit...".yellow()
-        );
-        println!();
+        println!("{}", "Submitting stack...".bold());
     }
 
     // Check for needs restack - show warning but continue (like fp)
@@ -82,14 +78,11 @@ pub fn run(
     if !needs_restack.is_empty() && !quiet {
         for b in &needs_restack {
             println!(
-                "{}",
-                format!(
-                    "Note: {} has fallen behind its parent. You may encounter conflicts if you attempt to merge it.",
-                    b
-                ).yellow()
+                "  {} {} needs restack",
+                "!".yellow(),
+                b.cyan()
             );
         }
-        println!();
     }
 
     // Check for branches with no changes (empty branches)
@@ -111,18 +104,10 @@ pub fn run(
 
     if !empty_branches.is_empty() {
         if !quiet {
-            println!(
-                "{}",
-                "WARNING: The following branches have no changes:".yellow()
-            );
+            println!("  {} Empty branches (will be skipped):", "!".yellow());
             for b in &empty_branches {
-                println!("  {} {}", "▸".yellow(), b);
+                println!("    {}", b.dimmed());
             }
-            println!();
-            println!(
-                "{}",
-                "GitHub will reject PRs for branches with no commits.".yellow()
-            );
         }
 
         let proceed = if auto_confirm {
@@ -135,11 +120,8 @@ pub fn run(
         };
 
         if !proceed {
-            println!("{}", "Aborted.".red());
+            println!("  {}", "Aborted.".red());
             return Ok(());
-        }
-        if !quiet {
-            println!();
         }
     }
 
@@ -174,11 +156,12 @@ pub fn run(
 
     // Fetch to ensure we have latest remote refs
     if !quiet {
-        print!("Fetching from {}... ", remote_info.name);
+        print!("  Fetching from {}... ", remote_info.name);
+        std::io::Write::flush(&mut std::io::stdout()).ok();
     }
     remote::fetch_remote(repo.workdir()?, &remote_info.name)?;
     if !quiet {
-        println!("{}", "✓".green());
+        println!("{}", "done".green());
     }
 
     // Check which branches exist on remote
@@ -201,10 +184,8 @@ pub fn run(
 
     // Build plan - determine which PRs need create vs update
     if !quiet {
-        println!(
-            "{}",
-            "Preparing to submit PRs for the following branches...".yellow()
-        );
+        print!("  Planning PR operations... ");
+        std::io::Write::flush(&mut std::io::stdout()).ok();
     }
 
     let rt = tokio::runtime::Runtime::new()?;
@@ -240,17 +221,6 @@ pub fn run(
             true // New PR always needs creation
         };
 
-        let action = if existing_pr.is_none() {
-            "(Create)".green()
-        } else if !needs_push && !needs_pr_update {
-            "(No-op)".dimmed()
-        } else {
-            format!("(Update #{})", pr_number.unwrap()).blue()
-        };
-        if !quiet {
-            println!("  {} {} {}", "▸".white(), branch, action);
-        }
-
         plans.push(PrPlan {
             branch: branch.clone(),
             parent: base,
@@ -263,7 +233,24 @@ pub fn run(
         });
     }
     if !quiet {
-        println!();
+        println!("{}", "done".green());
+    }
+
+    // Show plan summary
+    let creates: Vec<_> = plans.iter().filter(|p| p.existing_pr.is_none()).collect();
+    let updates: Vec<_> = plans.iter().filter(|p| p.existing_pr.is_some() && p.needs_pr_update).collect();
+    let noops: Vec<_> = plans.iter().filter(|p| p.existing_pr.is_some() && !p.needs_pr_update && !p.needs_push).collect();
+
+    if !quiet {
+        if !creates.is_empty() {
+            println!("  {} {} PR(s) to create", creates.len().to_string().cyan(), "▸".dimmed());
+        }
+        if !updates.is_empty() {
+            println!("  {} {} PR(s) to update", updates.len().to_string().cyan(), "▸".dimmed());
+        }
+        if !noops.is_empty() {
+            println!("  {} {} PR(s) already up to date", noops.len().to_string().dimmed(), "▸".dimmed());
+        }
     }
 
     // Collect PR details for new PRs BEFORE pushing
@@ -271,8 +258,8 @@ pub fn run(
         let pr_template = load_pr_template(repo.workdir()?);
         let new_prs: Vec<_> = plans.iter().filter(|p| p.existing_pr.is_none()).collect();
         if !new_prs.is_empty() && !quiet {
-            println!("{}", "Enter details for new PRs:".yellow());
             println!();
+            println!("{}", "New PR details:".bold());
         }
 
         for plan in &mut plans {
@@ -287,7 +274,7 @@ pub fn run(
                 build_default_pr_body(pr_template.as_deref(), &plan.branch, &commit_messages);
 
             if !quiet {
-                println!("  {} {}", "▸".cyan(), plan.branch.cyan());
+                println!("  {}", plan.branch.cyan());
             }
 
             let title = if no_prompt {
@@ -341,10 +328,6 @@ pub fn run(
             plan.title = Some(title);
             plan.body = Some(body);
             plan.is_draft = Some(is_draft);
-
-            if !quiet {
-                println!();
-            }
         }
     }
 
@@ -353,22 +336,18 @@ pub fn run(
 
     if !branches_needing_push.is_empty() {
         if !quiet {
-            println!(
-                "Pushing {} branch(es) to {} ({}/{})...",
-                branches_needing_push.len().to_string().cyan(),
-                remote_info.name,
-                owner,
-                repo_name
-            );
+            println!();
+            println!("{}", "Pushing branches...".bold());
         }
 
         for plan in &branches_needing_push {
             if !quiet {
-                print!("  Pushing {}... ", plan.branch.white());
+                print!("  {}... ", plan.branch);
+                std::io::Write::flush(&mut std::io::stdout()).ok();
             }
             push_branch(repo.workdir()?, &remote_info.name, &plan.branch)?;
             if !quiet {
-                println!("{}", "✓".green());
+                println!("{}", "done".green());
             }
         }
     }
@@ -376,10 +355,7 @@ pub fn run(
     if no_pr {
         if !quiet {
             println!();
-            println!(
-                "{}",
-                "✓ Branches pushed (--no-pr, skipping PR creation)".green()
-            );
+            println!("{}", "✓ Branches pushed successfully!".green().bold());
         }
         return Ok(());
     }
@@ -390,17 +366,15 @@ pub fn run(
     if !any_pr_work && branches_needing_push.is_empty() {
         if !quiet {
             println!();
-            println!("{}", "✓ Nothing to do - stack is already up to date!".green());
+            println!("{}", "✓ Stack already up to date!".green().bold());
         }
         return Ok(());
     }
 
     // Create/update PRs
-    if any_pr_work {
-        if !quiet {
-            println!();
-            println!("Creating/updating PRs...");
-        }
+    if any_pr_work && !quiet {
+        println!();
+        println!("{}", "Processing PRs...".bold());
     }
 
     rt.block_on(async {
@@ -417,7 +391,8 @@ pub fn run(
                 let is_draft = plan.is_draft.unwrap_or(draft);
 
                 if !quiet {
-                    print!("  Creating PR for {}... ", plan.branch.white());
+                    print!("  Creating {}... ", plan.branch);
+                    std::io::Write::flush(&mut std::io::stdout()).ok();
                 }
 
                 let pr = client
@@ -433,7 +408,7 @@ pub fn run(
                     ))?;
 
                 if !quiet {
-                    println!("{} {}", "✓".green(), format!("#{}", pr.number).dimmed());
+                    println!("{} {}", "created".green(), format!("#{}", pr.number).dimmed());
                 }
 
                 // Update metadata with PR info
@@ -457,11 +432,8 @@ pub fn run(
                 // Update existing PR (only if needed)
                 let pr_number = plan.existing_pr.unwrap();
                 if !quiet {
-                    print!(
-                        "  Updating PR #{} for {}... ",
-                        pr_number,
-                        plan.branch.white()
-                    );
+                    print!("  Updating {} #{}... ", plan.branch, pr_number);
+                    std::io::Write::flush(&mut std::io::stdout()).ok();
                 }
 
                 // Update base if needed
@@ -470,7 +442,7 @@ pub fn run(
                 apply_pr_metadata(&client, pr_number, &reviewers, &labels, &assignees).await?;
 
                 if !quiet {
-                    println!("{}", "✓".green());
+                    println!("{}", "done".green());
                 }
 
                 // Get current PR state
@@ -509,9 +481,8 @@ pub fn run(
 
             if let Some(num) = summary_pr {
                 if !quiet {
-                    println!();
-                    println!("Updating stack summary...");
-                    print!("  {} #{}... ", remote_info.provider.pr_label(), num);
+                    print!("  Updating stack comment on #{}... ", num);
+                    std::io::Write::flush(&mut std::io::stdout()).ok();
                 }
                 let stack_comment = generate_stack_comment(
                     &pr_infos,
@@ -521,26 +492,25 @@ pub fn run(
                 );
                 client.update_stack_comment(num, &stack_comment).await?;
                 if !quiet {
-                    println!("{}", "✓".green());
+                    println!("{}", "done".green());
                 }
             }
         }
 
         if !quiet {
             println!();
-            println!("{}", "✓ Stack submitted successfully!".green());
-        }
+            println!("{}", "✓ Stack submitted!".green().bold());
 
-        // Print PR URLs
-        if !pr_infos.is_empty() && !quiet {
-            println!();
-            for pr_info in &pr_infos {
-                if let Some(num) = pr_info.pr_number {
-                    println!(
-                        "  {} → {}",
-                        pr_info.branch.white(),
-                        remote_info.pr_url(num)
-                    );
+            // Print PR URLs
+            if !pr_infos.is_empty() {
+                for pr_info in &pr_infos {
+                    if let Some(num) = pr_info.pr_number {
+                        println!(
+                            "  {} {}",
+                            "✓".green(),
+                            remote_info.pr_url(num)
+                        );
+                    }
                 }
             }
         }
