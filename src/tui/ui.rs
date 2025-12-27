@@ -1,4 +1,4 @@
-use crate::tui::app::{App, ConfirmAction, Mode};
+use crate::tui::app::{App, ConfirmAction, InputAction, Mode};
 use crate::tui::widgets::{render_details, render_stack_tree};
 use ratatui::{
     layout::{Constraint, Direction, Layout, Rect},
@@ -34,6 +34,7 @@ pub fn render(f: &mut Frame, app: &App) {
     match &app.mode {
         Mode::Help => render_help_modal(f),
         Mode::Confirm(action) => render_confirm_modal(f, action),
+        Mode::Input(action) => render_input_modal(f, action, &app.input_buffer, app.input_cursor),
         _ => {}
     }
 }
@@ -53,6 +54,7 @@ fn render_status_bar(f: &mut Frame, app: &App, area: Rect) {
             Mode::Search => "↑↓ navigate  ⏎ select  Esc cancel  Type to filter...",
             Mode::Help => "Press any key to close",
             Mode::Confirm(_) => "y confirm  n/Esc cancel",
+            Mode::Input(_) => "⏎ confirm  Esc cancel",
         };
         (bindings.to_string(), Style::default().fg(Color::White))
     };
@@ -154,6 +156,58 @@ fn render_confirm_modal(f: &mut Frame, action: &ConfirmAction) {
                 .borders(Borders::ALL)
                 .title(" Confirm ")
                 .border_style(Style::default().fg(Color::Yellow)),
+        )
+        .wrap(Wrap { trim: false });
+
+    f.render_widget(Clear, area);
+    f.render_widget(paragraph, area);
+}
+
+/// Render input modal
+fn render_input_modal(f: &mut Frame, action: &InputAction, input: &str, cursor: usize) {
+    let area = centered_rect(50, 25, f.area());
+
+    let title = match action {
+        InputAction::Rename => " Rename Branch ",
+        InputAction::NewBranch => " New Branch ",
+    };
+
+    let prompt = match action {
+        InputAction::Rename => "Enter new branch name:",
+        InputAction::NewBranch => "Enter branch name:",
+    };
+
+    // Split input at cursor position
+    let (before, after) = input.split_at(cursor.min(input.len()));
+
+    let content = vec![
+        Line::from(""),
+        Line::from(vec![Span::styled(
+            prompt,
+            Style::default().add_modifier(Modifier::BOLD),
+        )]),
+        Line::from(""),
+        Line::from(vec![
+            Span::styled("> ", Style::default().fg(Color::Cyan)),
+            Span::styled(before, Style::default().fg(Color::White)),
+            Span::styled("│", Style::default().fg(Color::Cyan).add_modifier(Modifier::SLOW_BLINK)),
+            Span::styled(after, Style::default().fg(Color::White)),
+        ]),
+        Line::from(""),
+        Line::from(vec![
+            Span::styled("←→ move  ", Style::default().fg(Color::DarkGray)),
+            Span::styled("Home/End  ", Style::default().fg(Color::DarkGray)),
+            Span::styled("⏎ confirm  ", Style::default().fg(Color::DarkGray)),
+            Span::styled("Esc cancel", Style::default().fg(Color::DarkGray)),
+        ]),
+    ];
+
+    let paragraph = Paragraph::new(content)
+        .block(
+            Block::default()
+                .borders(Borders::ALL)
+                .title(title)
+                .border_style(Style::default().fg(Color::Cyan)),
         )
         .wrap(Wrap { trim: false });
 

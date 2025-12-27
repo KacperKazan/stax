@@ -16,6 +16,8 @@ pub enum KeyAction {
     // Navigation
     Up,
     Down,
+    Left,
+    Right,
     Enter,
     Escape,
 
@@ -33,9 +35,11 @@ pub enum KeyAction {
     Help,
     Quit,
 
-    // Search input
+    // Text input
     Char(char),
     Backspace,
+    Home,
+    End,
 
     // Unknown
     None,
@@ -43,16 +47,37 @@ pub enum KeyAction {
 
 impl From<KeyEvent> for KeyAction {
     fn from(key: KeyEvent) -> Self {
+        // Handle Ctrl+C for quit
+        if key.modifiers.contains(KeyModifiers::CONTROL) {
+            if let KeyCode::Char('c') = key.code {
+                return KeyAction::Quit;
+            }
+        }
+
+        // Handle Shift for uppercase
+        if key.modifiers.contains(KeyModifiers::SHIFT) {
+            if let KeyCode::Char('R') | KeyCode::Char('r') = key.code {
+                return KeyAction::RestackAll;
+            }
+        }
+
         match key.code {
             // Navigation
-            KeyCode::Up | KeyCode::Char('k') => KeyAction::Up,
-            KeyCode::Down | KeyCode::Char('j') => KeyAction::Down,
+            KeyCode::Up => KeyAction::Up,
+            KeyCode::Down => KeyAction::Down,
+            KeyCode::Left => KeyAction::Left,
+            KeyCode::Right => KeyAction::Right,
             KeyCode::Enter => KeyAction::Enter,
             KeyCode::Esc => KeyAction::Escape,
+            KeyCode::Home => KeyAction::Home,
+            KeyCode::End => KeyAction::End,
 
-            // Actions (only in normal mode - checked by caller)
-            KeyCode::Char('r') if key.modifiers.is_empty() => KeyAction::Restack,
-            KeyCode::Char('R') => KeyAction::RestackAll,
+            // Vim navigation
+            KeyCode::Char('k') => KeyAction::Up,
+            KeyCode::Char('j') => KeyAction::Down,
+
+            // Actions
+            KeyCode::Char('r') => KeyAction::Restack,
             KeyCode::Char('s') => KeyAction::Submit,
             KeyCode::Char('p') => KeyAction::OpenPr,
             KeyCode::Char('n') => KeyAction::NewBranch,
@@ -63,9 +88,8 @@ impl From<KeyEvent> for KeyAction {
             KeyCode::Char('/') => KeyAction::Search,
             KeyCode::Char('?') => KeyAction::Help,
             KeyCode::Char('q') => KeyAction::Quit,
-            KeyCode::Char('c') if key.modifiers.contains(KeyModifiers::CONTROL) => KeyAction::Quit,
 
-            // Text input
+            // Text input (for search mode)
             KeyCode::Char(c) => KeyAction::Char(c),
             KeyCode::Backspace => KeyAction::Backspace,
 

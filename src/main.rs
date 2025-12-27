@@ -262,6 +262,9 @@ enum Commands {
         /// Edit the commit message
         #[arg(short, long)]
         edit: bool,
+        /// Use name literally without applying prefix
+        #[arg(long, hide = true)]
+        literal: bool,
     },
 
     // Hidden top-level shortcuts for convenience
@@ -354,6 +357,9 @@ enum BranchCommands {
         /// Edit the commit message
         #[arg(short, long)]
         edit: bool,
+        /// Use name literally without applying prefix
+        #[arg(long, hide = true)]
+        literal: bool,
     },
 
     /// Delete a branch and its metadata
@@ -517,7 +523,7 @@ fn main() -> Result<()> {
             prefix,
         } => commands::branch::create::run(name, message, from, prefix, all),
         Commands::Pr => commands::pr::run(),
-        Commands::Rename { name, edit } => commands::branch::rename::run(name, edit),
+        Commands::Rename { name, edit, literal } => commands::branch::rename::run(name, edit, literal),
         Commands::Branch(cmd) => match cmd {
             BranchCommands::Create {
                 name,
@@ -536,7 +542,7 @@ fn main() -> Result<()> {
             BranchCommands::Reparent { branch, parent } => {
                 commands::branch::reparent::run(branch, parent)
             }
-            BranchCommands::Rename { name, edit } => commands::branch::rename::run(name, edit),
+            BranchCommands::Rename { name, edit, literal } => commands::branch::rename::run(name, edit, literal),
             BranchCommands::Delete { branch, force } => {
                 commands::branch::delete::run(branch, force)
             }

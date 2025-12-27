@@ -3,7 +3,7 @@ mod event;
 mod ui;
 mod widgets;
 
-use app::{App, ConfirmAction, Mode};
+use app::{App, ConfirmAction, InputAction, Mode};
 use event::{poll_event, KeyAction};
 
 use anyhow::Result;
@@ -77,6 +77,10 @@ fn handle_action(app: &mut App, action: KeyAction) -> Result<()> {
             let confirm_action = confirm_action.clone();
             handle_confirm_action(app, action, &confirm_action)?;
         }
+        Mode::Input(input_action) => {
+            let input_action = input_action.clone();
+            handle_input_action(app, action, &input_action)?;
+        }
     }
     Ok(())
 }
@@ -134,18 +138,20 @@ fn handle_normal_action(app: &mut App, action: KeyAction) -> Result<()> {
             }
         }
         KeyAction::NewBranch => {
-            // Exit TUI and run create command interactively
-            app.should_quit = true;
-            app.set_status("Run 'stax create <name>' to create a new branch");
+            app.input_buffer.clear();
+            app.input_cursor = 0;
+            app.mode = Mode::Input(InputAction::NewBranch);
         }
         KeyAction::Rename => {
             if let Some(branch) = app.selected_branch() {
                 if branch.is_trunk {
                     app.set_status("Cannot rename trunk branch");
+                } else if !branch.is_current {
+                    app.set_status("Switch to branch first to rename it");
                 } else {
-                    // Exit TUI and run rename command interactively
-                    app.should_quit = true;
-                    app.set_status("Run 'stax rename <new-name>' to rename the branch");
+                    app.input_buffer = branch.name.clone();
+                    app.input_cursor = app.input_buffer.len();
+                    app.mode = Mode::Input(InputAction::Rename);
                 }
             }
         }
@@ -231,6 +237,63 @@ fn handle_confirm_action(app: &mut App, action: KeyAction, confirm_action: &Conf
         }
         KeyAction::Char('n') | KeyAction::Char('N') | KeyAction::Escape => {
             app.mode = Mode::Normal;
+        }
+        _ => {}
+    }
+    Ok(())
+}
+
+/// Handle actions in input mode
+fn handle_input_action(app: &mut App, action: KeyAction, input_action: &InputAction) -> Result<()> {
+    match action {
+        KeyAction::Escape => {
+            app.mode = Mode::Normal;
+            app.input_buffer.clear();
+            app.input_cursor = 0;
+        }
+        KeyAction::Enter => {
+            let input = app.input_buffer.trim().to_string();
+            if input.is_empty() {
+                app.set_status("Name cannot be empty");
+            } else {
+                match input_action {
+                    InputAction::Rename => {
+                        run_external_command(app, &["rename", "--literal", &input])?;
+                    }
+                    InputAction::NewBranch => {
+                        run_external_command(app, &["create", &input])?;
+                    }
+                }
+                app.mode = Mode::Normal;
+                app.input_buffer.clear();
+                app.input_cursor = 0;
+            }
+        }
+        KeyAction::Left => {
+            if app.input_cursor > 0 {
+                app.input_cursor -= 1;
+            }
+        }
+        KeyAction::Right => {
+            if app.input_cursor < app.input_buffer.len() {
+                app.input_cursor += 1;
+            }
+        }
+        KeyAction::Home => {
+            app.input_cursor = 0;
+        }
+        KeyAction::End => {
+            app.input_cursor = app.input_buffer.len();
+        }
+        KeyAction::Char(c) => {
+            app.input_buffer.insert(app.input_cursor, c);
+            app.input_cursor += 1;
+        }
+        KeyAction::Backspace => {
+            if app.input_cursor > 0 {
+                app.input_cursor -= 1;
+                app.input_buffer.remove(app.input_cursor);
+            }
         }
         _ => {}
     }

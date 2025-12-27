@@ -31,6 +31,14 @@ pub enum Mode {
     Search,
     Help,
     Confirm(ConfirmAction),
+    Input(InputAction),
+}
+
+/// Actions that require text input
+#[derive(Debug, Clone, PartialEq)]
+pub enum InputAction {
+    Rename,
+    NewBranch,
 }
 
 /// Actions that require confirmation
@@ -54,6 +62,8 @@ pub struct App {
     pub mode: Mode,
     pub search_query: String,
     pub filtered_indices: Vec<usize>,
+    pub input_buffer: String,
+    pub input_cursor: usize,
     pub status_message: Option<String>,
     pub status_set_at: Option<Instant>,
     pub should_quit: bool,
@@ -81,6 +91,8 @@ impl App {
             mode: Mode::Normal,
             search_query: String::new(),
             filtered_indices: Vec::new(),
+            input_buffer: String::new(),
+            input_cursor: 0,
             status_message: None,
             status_set_at: None,
             should_quit: false,
