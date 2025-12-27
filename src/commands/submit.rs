@@ -418,7 +418,6 @@ pub fn run(
                 pr_infos.push(StackPrInfo {
                     branch: plan.branch.clone(),
                     pr_number: Some(pr.number),
-                    pr_title: Some(title.clone()),
                 });
             } else {
                 // Update existing PR
@@ -456,7 +455,6 @@ pub fn run(
                 pr_infos.push(StackPrInfo {
                     branch: plan.branch.clone(),
                     pr_number: Some(pr.number),
-                    pr_title: Some(pr.title.clone()),
                 });
             }
         }
