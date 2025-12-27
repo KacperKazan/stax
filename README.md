@@ -87,7 +87,9 @@ Run `stax` with no arguments to launch the interactive terminal UI:
 stax
 ```
 
-<!-- TODO: Add TUI screenshot here -->
+<p align="center">
+  <img alt="stax TUI" src="assets/tui.png" width="800">
+</p>
 
 **TUI Features:**
 - Visual stack tree with PR status, sync indicators, and commit counts
@@ -110,7 +112,9 @@ stax
 
 Rearrange branches within your stack without manually running reparent commands:
 
-<!-- TODO: Add reorder mode screenshot here -->
+<p align="center">
+  <img alt="stax reorder mode" src="assets/reordering-stacks.png" width="800">
+</p>
 
 1. Select a branch and press `o` to enter reorder mode
 2. Use `Shift+↑/↓` to move the branch up or down in the stack
