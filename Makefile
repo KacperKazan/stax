@@ -12,8 +12,8 @@ release:
 	cargo build --release
 
 # Install to ~/.cargo/bin
-install: release
-	cargo install --path .
+install:
+	cargo install --path . --locked --bins --debug
 
 # Clean build artifacts
 clean:
