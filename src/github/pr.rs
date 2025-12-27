@@ -9,6 +9,7 @@ pub struct PrInfo {
     pub number: u64,
     pub state: String,
     pub is_draft: bool,
+    pub base: String,
 }
 
 impl GitHubClient {
@@ -29,6 +30,7 @@ impl GitHubClient {
                 number: pr.number,
                 state: pr.state.as_ref().map(|s| format!("{:?}", s)).unwrap_or_default(),
                 is_draft: pr.draft.unwrap_or(false),
+                base: pr.base.ref_field.clone(),
             }))
         } else {
             Ok(None)
@@ -58,6 +60,7 @@ impl GitHubClient {
             number: pr.number,
             state: pr.state.as_ref().map(|s| format!("{:?}", s)).unwrap_or_default(),
             is_draft: pr.draft.unwrap_or(false),
+            base: pr.base.ref_field.clone(),
         })
     }
 
@@ -74,6 +77,7 @@ impl GitHubClient {
             number: pr.number,
             state: pr.state.as_ref().map(|s| format!("{:?}", s)).unwrap_or_default(),
             is_draft: pr.draft.unwrap_or(false),
+            base: pr.base.ref_field.clone(),
         })
     }
 

@@ -19,6 +19,9 @@ struct PrPlan {
     title: Option<String>,
     body: Option<String>,
     is_draft: Option<bool>,
+    // Track if this is a no-op (already synced)
+    needs_push: bool,
+    needs_pr_update: bool,
 }
 
 pub fn run(
@@ -227,8 +230,20 @@ pub fn run(
             meta.parent_branch_name.clone()
         };
 
+        // Check if we actually need to push
+        let needs_push = branch_needs_push(repo.workdir()?, &remote_info.name, branch);
+
+        // Check if PR base needs updating
+        let needs_pr_update = if let Some(pr) = &existing_pr {
+            pr.base != base || needs_push
+        } else {
+            true // New PR always needs creation
+        };
+
         let action = if existing_pr.is_none() {
             "(Create)".green()
+        } else if !needs_push && !needs_pr_update {
+            "(No-op)".dimmed()
         } else {
             format!("(Update #{})", pr_number.unwrap()).blue()
         };
@@ -243,6 +258,8 @@ pub fn run(
             title: None,
             body: None,
             is_draft: None,
+            needs_push,
+            needs_pr_update,
         });
     }
     if !quiet {
@@ -331,24 +348,28 @@ pub fn run(
         }
     }
 
-    // Now push all branches
-    if !quiet {
-        println!(
-            "Pushing {} branch(es) to {} ({}/{})...",
-            branches_to_submit.len().to_string().cyan(),
-            remote_info.name,
-            owner,
-            repo_name
-        );
-    }
+    // Now push branches that need it
+    let branches_needing_push: Vec<_> = plans.iter().filter(|p| p.needs_push).collect();
 
-    for branch in &branches_to_submit {
+    if !branches_needing_push.is_empty() {
         if !quiet {
-            print!("  Pushing {}... ", branch.white());
+            println!(
+                "Pushing {} branch(es) to {} ({}/{})...",
+                branches_needing_push.len().to_string().cyan(),
+                remote_info.name,
+                owner,
+                repo_name
+            );
         }
-        push_branch(repo.workdir()?, &remote_info.name, branch)?;
-        if !quiet {
-            println!("{}", "✓".green());
+
+        for plan in &branches_needing_push {
+            if !quiet {
+                print!("  Pushing {}... ", plan.branch.white());
+            }
+            push_branch(repo.workdir()?, &remote_info.name, &plan.branch)?;
+            if !quiet {
+                println!("{}", "✓".green());
+            }
         }
     }
 
@@ -363,10 +384,23 @@ pub fn run(
         return Ok(());
     }
 
+    // Check if anything needs to be done
+    let any_pr_work = plans.iter().any(|p| p.existing_pr.is_none() || p.needs_pr_update);
+
+    if !any_pr_work && branches_needing_push.is_empty() {
+        if !quiet {
+            println!();
+            println!("{}", "✓ Nothing to do - stack is already up to date!".green());
+        }
+        return Ok(());
+    }
+
     // Create/update PRs
-    if !quiet {
-        println!();
-        println!("Creating/updating PRs...");
+    if any_pr_work {
+        if !quiet {
+            println!();
+            println!("Creating/updating PRs...");
+        }
     }
 
     rt.block_on(async {
@@ -419,8 +453,8 @@ pub fn run(
                     branch: plan.branch.clone(),
                     pr_number: Some(pr.number),
                 });
-            } else {
-                // Update existing PR
+            } else if plan.needs_pr_update {
+                // Update existing PR (only if needed)
                 let pr_number = plan.existing_pr.unwrap();
                 if !quiet {
                     print!(
@@ -455,6 +489,12 @@ pub fn run(
                 pr_infos.push(StackPrInfo {
                     branch: plan.branch.clone(),
                     pr_number: Some(pr.number),
+                });
+            } else {
+                // No-op - just add to pr_infos for summary
+                pr_infos.push(StackPrInfo {
+                    branch: plan.branch.clone(),
+                    pr_number: plan.existing_pr,
                 });
             }
         }
@@ -524,6 +564,34 @@ fn push_branch(workdir: &std::path::Path, remote: &str, branch: &str) -> Result<
         anyhow::bail!("Failed to push branch {}", branch);
     }
     Ok(())
+}
+
+/// Check if a branch needs to be pushed (local differs from remote)
+fn branch_needs_push(workdir: &Path, remote: &str, branch: &str) -> bool {
+    // Get local commit
+    let local = Command::new("git")
+        .args(["rev-parse", branch])
+        .current_dir(workdir)
+        .output()
+        .ok()
+        .filter(|o| o.status.success())
+        .map(|o| String::from_utf8_lossy(&o.stdout).trim().to_string());
+
+    // Get remote commit
+    let remote_ref = format!("{}/{}", remote, branch);
+    let remote_commit = Command::new("git")
+        .args(["rev-parse", &remote_ref])
+        .current_dir(workdir)
+        .output()
+        .ok()
+        .filter(|o| o.status.success())
+        .map(|o| String::from_utf8_lossy(&o.stdout).trim().to_string());
+
+    match (local, remote_commit) {
+        (Some(l), Some(r)) => l != r, // Need push if different
+        (Some(_), None) => true,       // Branch not on remote yet
+        _ => true,                     // Default to push if unsure
+    }
 }
 
 fn collect_commit_messages(workdir: &Path, parent: &str, branch: &str) -> Vec<String> {
