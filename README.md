@@ -346,7 +346,7 @@ stax uses the same metadata format as freephite and supports similar commands:
 |---------|------|-----------|----------|
 | `ls` (10-branch stack) | 22.8ms | 369.5ms | 209.1ms |
 
-Raw `hyperfine` results:
+Raw [`hyperfine`](https://github.com/sharkdp/hyperfine) results:
 
 ```
 ➜ hyperfine 'stax ls' 'fp ls' 'gt ls' --warmup 3

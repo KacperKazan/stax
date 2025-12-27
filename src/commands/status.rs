@@ -26,6 +26,7 @@ const DEPTH_COLORS: &[Color] = &[
 struct DisplayBranch {
     name: String,
     column: usize,
+    stack_index: usize, // Which stack (trunk child) this branch belongs to
 }
 
 #[derive(Serialize, Clone)]
@@ -60,6 +61,7 @@ pub fn run(
     all: bool,
     compact: bool,
     quiet: bool,
+    verbose: bool,
 ) -> Result<()> {
     let repo = GitRepo::open()?;
     let current = repo.current_branch()?;
@@ -103,11 +105,13 @@ pub fn run(
     sorted_trunk_children.sort();
 
     // Each trunk child gets column = index (first at 0, second at 1, etc.)
+    // stack_index tracks which stack (trunk child) each branch belongs to for coloring
     for (i, root) in sorted_trunk_children.iter().enumerate() {
         collect_display_branches_with_nesting(
             &stack,
             root,
-            i,
+            i,      // column
+            i,      // stack_index - same as column for trunk children
             &mut display_branches,
             &mut max_column,
             allowed_branches.as_ref(),
@@ -230,6 +234,12 @@ pub fn run(
         return Ok(());
     }
 
+    // Build column -> stack_index mapping for vertical line coloring
+    let mut column_stack: HashMap<usize, usize> = HashMap::new();
+    for db in &display_branches {
+        column_stack.insert(db.column, db.stack_index);
+    }
+
     // Render each branch
     for (i, db) in display_branches.iter().enumerate() {
         let branch = &db.name;
@@ -237,7 +247,8 @@ pub fn run(
         let entry = branch_status_map.get(branch);
         // Show cloud if branch exists on remote OR has a PR (PR implies it was pushed)
         let has_remote = remote_branches.contains(branch) || entry.and_then(|e| e.pr_number).is_some();
-        let color = DEPTH_COLORS[db.column % DEPTH_COLORS.len()];
+        // Color based on stack_index so all branches in the same stack share a color
+        let color = DEPTH_COLORS[db.stack_index % DEPTH_COLORS.len()];
 
         // Check if we need a corner connector - this happens when the PREVIOUS branch was at a higher column
         // The corner shows that a side branch joins back to this level
@@ -262,7 +273,9 @@ pub fn run(
                 }
             } else {
                 // Columns to our left - always draw vertical lines for active columns
-                let line_color = DEPTH_COLORS[col % DEPTH_COLORS.len()];
+                // Use stack_index for color so vertical lines match their stack
+                let stack_idx = column_stack.get(&col).copied().unwrap_or(col);
+                let line_color = DEPTH_COLORS[stack_idx % DEPTH_COLORS.len()];
                 tree.push_str(&format!("{} ", "│".color(line_color)));
                 visual_width += 2;
             }
@@ -282,6 +295,7 @@ pub fn run(
             info_str.push_str(&format!("{} ", "☁".bright_blue()));
         }
 
+        // Keep branch names white/neutral, only tree graphics are colored by stack
         if is_current {
             info_str.push_str(&format!("{}", branch.bold()));
         } else {
@@ -301,9 +315,13 @@ pub fn run(
                 info_str.push_str(&commits_str);
             }
 
-            // Show restack icon
+            // Show restack indicator
             if entry.needs_restack {
-                info_str.push_str(&format!(" {}", "⟳".bright_yellow()));
+                if verbose {
+                    info_str.push_str(&format!(" {}", "⟳".bright_yellow()));
+                } else {
+                    info_str.push_str(&format!(" {}", "(needs restack)".bright_yellow()));
+                }
             }
 
             if let Some(pr_number) = entry.pr_number {
@@ -318,8 +336,11 @@ pub fn run(
                 if entry.pr_is_draft.unwrap_or(false) {
                     pr_text.push_str(" draft");
                 }
-                if let Some(ref url) = entry.pr_url {
-                    pr_text.push_str(&format!(" {}", url));
+                // Only show URL in verbose mode (ll command)
+                if verbose {
+                    if let Some(ref url) = entry.pr_url {
+                        pr_text.push_str(&format!(" {}", url));
+                    }
                 }
                 info_str.push_str(&format!("{}", pr_text.bright_magenta()));
             }
@@ -394,9 +415,9 @@ pub fn run(
         );
     }
 
-    // Show restack hint
+    // Show restack hint (only in verbose mode to reduce noise in simple ls)
     let needs_restack = stack.needs_restack();
-    if !needs_restack.is_empty() && !quiet {
+    if !needs_restack.is_empty() && !quiet && verbose {
         println!();
         println!(
             "{}",
@@ -414,17 +435,19 @@ fn collect_display_branches_with_nesting(
     stack: &Stack,
     branch: &str,
     base_column: usize,
+    stack_index: usize,
     result: &mut Vec<DisplayBranch>,
     max_column: &mut usize,
     allowed: Option<&HashSet<String>>,
 ) {
-    collect_recursive(stack, branch, base_column, result, max_column, allowed);
+    collect_recursive(stack, branch, base_column, stack_index, result, max_column, allowed);
 }
 
 fn collect_recursive(
     stack: &Stack,
     branch: &str,
     column: usize,
+    stack_index: usize,
     result: &mut Vec<DisplayBranch>,
     max_column: &mut usize,
     allowed: Option<&HashSet<String>>,
@@ -452,6 +475,7 @@ fn collect_recursive(
                     stack,
                     child,
                     column + i,
+                    stack_index,  // All children inherit the same stack_index
                     result,
                     max_column,
                     allowed,
@@ -464,6 +488,7 @@ fn collect_recursive(
     result.push(DisplayBranch {
         name: branch.to_string(),
         column,
+        stack_index,
     });
 }
 

@@ -42,6 +42,26 @@ enum Commands {
         quiet: bool,
     },
 
+    /// Show stack with PR URLs and full details
+    #[command(name = "ll")]
+    Ll {
+        /// Output JSON for scripting
+        #[arg(long)]
+        json: bool,
+        /// Show only the stack for this branch
+        #[arg(long)]
+        stack: Option<String>,
+        /// Show all stacks
+        #[arg(long)]
+        all: bool,
+        /// Compact output for scripts
+        #[arg(long)]
+        compact: bool,
+        /// Suppress extra output
+        #[arg(long)]
+        quiet: bool,
+    },
+
     /// Show detailed stack with commits and PR info
     #[command(visible_alias = "l")]
     Log {
@@ -454,7 +474,14 @@ fn main() -> Result<()> {
             all,
             compact,
             quiet,
-        } => commands::status::run(json, stack, all, compact, quiet),
+        } => commands::status::run(json, stack, all, compact, quiet, false),
+        Commands::Ll {
+            json,
+            stack,
+            all,
+            compact,
+            quiet,
+        } => commands::status::run(json, stack, all, compact, quiet, true),
         Commands::Log {
             json,
             stack,
@@ -557,7 +584,7 @@ fn main() -> Result<()> {
             UpstackCommands::Restack => commands::upstack::restack::run(),
         },
         Commands::Downstack(cmd) => match cmd {
-            DownstackCommands::Get => commands::status::run(false, None, false, false, false),
+            DownstackCommands::Get => commands::status::run(false, None, false, false, false, false),
         },
         // Hidden shortcuts
         Commands::Bc {
