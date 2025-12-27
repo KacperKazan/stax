@@ -5,6 +5,7 @@ mod engine;
 mod git;
 mod github;
 mod remote;
+mod tui;
 
 use anyhow::Result;
 use clap::{Parser, Subcommand};
@@ -16,7 +17,7 @@ use config::Config;
 #[command(about = "Fast stacked Git branches and PRs", long_about = None)]
 struct Cli {
     #[command(subcommand)]
-    command: Commands,
+    command: Option<Commands>,
 }
 
 #[derive(Subcommand)]
@@ -261,6 +262,9 @@ enum Commands {
         /// Edit the commit message
         #[arg(short, long)]
         edit: bool,
+        /// Use name literally without applying prefix
+        #[arg(long, hide = true)]
+        literal: bool,
     },
 
     // Hidden top-level shortcuts for convenience
@@ -353,6 +357,9 @@ enum BranchCommands {
         /// Edit the commit message
         #[arg(short, long)]
         edit: bool,
+        /// Use name literally without applying prefix
+        #[arg(long, hide = true)]
+        literal: bool,
     },
 
     /// Delete a branch and its metadata
@@ -419,8 +426,18 @@ fn main() -> Result<()> {
 
     let cli = Cli::parse();
 
+    // No command = launch TUI
+    let command = match cli.command {
+        Some(cmd) => cmd,
+        None => {
+            // TUI requires initialized repo
+            commands::init::ensure_initialized()?;
+            return tui::run();
+        }
+    };
+
     // Commands that don't need repo initialization
-    match &cli.command {
+    match &command {
         Commands::Auth { token } => return commands::auth::run(token.clone()),
         Commands::Config => return commands::config::run(),
         Commands::Doctor => return commands::doctor::run(),
@@ -430,7 +447,7 @@ fn main() -> Result<()> {
     // Ensure repo is initialized for all other commands
     commands::init::ensure_initialized()?;
 
-    match cli.command {
+    match command {
         Commands::Status {
             json,
             stack,
@@ -506,7 +523,7 @@ fn main() -> Result<()> {
             prefix,
         } => commands::branch::create::run(name, message, from, prefix, all),
         Commands::Pr => commands::pr::run(),
-        Commands::Rename { name, edit } => commands::branch::rename::run(name, edit),
+        Commands::Rename { name, edit, literal } => commands::branch::rename::run(name, edit, literal),
         Commands::Branch(cmd) => match cmd {
             BranchCommands::Create {
                 name,
@@ -525,7 +542,7 @@ fn main() -> Result<()> {
             BranchCommands::Reparent { branch, parent } => {
                 commands::branch::reparent::run(branch, parent)
             }
-            BranchCommands::Rename { name, edit } => commands::branch::rename::run(name, edit),
+            BranchCommands::Rename { name, edit, literal } => commands::branch::rename::run(name, edit, literal),
             BranchCommands::Delete { branch, force } => {
                 commands::branch::delete::run(branch, force)
             }

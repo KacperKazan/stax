@@ -8,7 +8,7 @@ use std::io::IsTerminal;
 use std::process::Command;
 
 /// Rename the current branch and optionally edit the commit message
-pub fn run(new_name: Option<String>, edit_message: bool) -> Result<()> {
+pub fn run(new_name: Option<String>, edit_message: bool, literal: bool) -> Result<()> {
     let is_interactive = std::io::stdin().is_terminal();
     let repo = GitRepo::open()?;
     let old_name = repo.current_branch()?;
@@ -22,7 +22,13 @@ pub fn run(new_name: Option<String>, edit_message: bool) -> Result<()> {
 
     // Get new name
     let new_name = match new_name {
-        Some(name) => config.format_branch_name(&name),
+        Some(name) => {
+            if literal {
+                name // Use as-is without prefix
+            } else {
+                config.format_branch_name(&name)
+            }
+        }
         None => {
             if !is_interactive {
                 anyhow::bail!("New branch name required in non-interactive mode");

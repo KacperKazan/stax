@@ -67,6 +67,28 @@ impl GitRepo {
         Ok((ahead, behind))
     }
 
+    /// Get commit messages between base and head (commits on head not in base)
+    pub fn commits_between(&self, base: &str, head: &str) -> Result<Vec<String>> {
+        let base_oid = self.resolve_to_oid(base)?;
+        let head_oid = self.resolve_to_oid(head)?;
+
+        let mut revwalk = self.repo.revwalk()?;
+        revwalk.push(head_oid)?;
+        revwalk.hide(base_oid)?;
+
+        let mut commits = Vec::new();
+        for oid in revwalk {
+            let oid = oid?;
+            if let Ok(commit) = self.repo.find_commit(oid) {
+                if let Some(msg) = commit.summary() {
+                    commits.push(msg.to_string());
+                }
+            }
+        }
+
+        Ok(commits)
+    }
+
     /// Resolve a branch name or ref to an OID
     fn resolve_to_oid(&self, refspec: &str) -> Result<git2::Oid> {
         // Try as local branch first
@@ -369,6 +391,56 @@ impl GitRepo {
             .repo
             .merge_base(trunk_commit.id(), branch_commit.id())?
             == branch_commit.id())
+    }
+
+    /// Check if a branch has a remote tracking branch (origin/<branch>)
+    pub fn has_remote(&self, branch: &str) -> bool {
+        let remote_name = format!("origin/{}", branch);
+        self.repo.find_branch(&remote_name, BranchType::Remote).is_ok()
+    }
+
+    /// Get diff between a branch and its parent
+    pub fn diff_against_parent(&self, branch: &str, parent: &str) -> Result<Vec<String>> {
+        let output = Command::new("git")
+            .args(["diff", "--color=never", parent, branch])
+            .current_dir(self.workdir()?)
+            .output()
+            .context("Failed to get diff")?;
+
+        if !output.status.success() {
+            return Ok(Vec::new());
+        }
+
+        let diff = String::from_utf8_lossy(&output.stdout);
+        Ok(diff.lines().map(|s| s.to_string()).collect())
+    }
+
+    /// Get diff stat (numstat) between a branch and its parent
+    pub fn diff_stat(&self, branch: &str, parent: &str) -> Result<Vec<(String, usize, usize)>> {
+        let output = Command::new("git")
+            .args(["diff", "--numstat", parent, branch])
+            .current_dir(self.workdir()?)
+            .output()
+            .context("Failed to get diff stat")?;
+
+        if !output.status.success() {
+            return Ok(Vec::new());
+        }
+
+        let stat = String::from_utf8_lossy(&output.stdout);
+        let mut results = Vec::new();
+
+        for line in stat.lines() {
+            let parts: Vec<&str> = line.split('\t').collect();
+            if parts.len() >= 3 {
+                let additions = parts[0].parse().unwrap_or(0);
+                let deletions = parts[1].parse().unwrap_or(0);
+                let file = parts[2].to_string();
+                results.push((file, additions, deletions));
+            }
+        }
+
+        Ok(results)
     }
 
     /// Get all branches that are merged into trunk (excluding trunk itself)
