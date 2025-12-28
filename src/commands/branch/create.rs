@@ -40,6 +40,34 @@ pub fn run(
         None => config.format_branch_name(&input),
     };
 
+    // Check for branch name conflicts (Git doesn't allow both "foo" and "foo/bar")
+    let existing_branches = repo.list_branches().unwrap_or_default();
+    for existing in &existing_branches {
+        // Check if new branch would be a child path of existing (e.g., creating "foo/bar" when "foo" exists)
+        if branch_name.starts_with(&format!("{}/", existing)) {
+            bail!(
+                "Cannot create '{}': branch '{}' already exists.\n\
+                 Git doesn't allow a branch and its sub-path to coexist.\n\
+                 Either delete '{}' first, or use a different name like '{}-ui'.",
+                branch_name,
+                existing,
+                existing,
+                existing
+            );
+        }
+        // Check if existing branch is a child path of new (e.g., creating "foo" when "foo/bar" exists)
+        if existing.starts_with(&format!("{}/", branch_name)) {
+            bail!(
+                "Cannot create '{}': branch '{}' already exists.\n\
+                 Git doesn't allow a branch and its sub-path to coexist.\n\
+                 Either delete '{}' first, or use a different name.",
+                branch_name,
+                existing,
+                existing
+            );
+        }
+    }
+
     // Create the branch
     if parent_branch == current {
         repo.create_branch(&branch_name)?;
