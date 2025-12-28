@@ -10,15 +10,15 @@ use serde::Serialize;
 use std::collections::{HashMap, HashSet};
 use std::process::Command;
 
-// Colors for different depths
-const DEPTH_COLORS: &[Color] = &[
-    Color::Yellow,
-    Color::Green,
-    Color::Magenta,
+// Colors for different columns (fp-style: each column has its own color)
+const COLUMN_COLORS: &[Color] = &[
     Color::Cyan,
+    Color::Green,
+    Color::Yellow,
+    Color::Red,
+    Color::Magenta,
     Color::Blue,
-    Color::BrightRed,
-    Color::BrightYellow,
+    Color::BrightCyan,
     Color::BrightGreen,
 ];
 
@@ -26,7 +26,6 @@ const DEPTH_COLORS: &[Color] = &[
 struct DisplayBranch {
     name: String,
     column: usize,
-    stack_index: usize, // Which stack (trunk child) this branch belongs to
 }
 
 #[derive(Serialize, Clone)]
@@ -107,13 +106,11 @@ pub fn run(
     sorted_trunk_children.sort();
 
     // Each trunk child gets column = index (first at 0, second at 1, etc.)
-    // stack_index tracks which stack (trunk child) each branch belongs to for coloring
     for (i, root) in sorted_trunk_children.iter().enumerate() {
         collect_display_branches_with_nesting(
             &stack,
             root,
             i,      // column
-            i,      // stack_index - same as column for trunk children
             &mut display_branches,
             &mut max_column,
             allowed_branches.as_ref(),
@@ -236,12 +233,6 @@ pub fn run(
         return Ok(());
     }
 
-    // Build column -> stack_index mapping for vertical line coloring
-    let mut column_stack: HashMap<usize, usize> = HashMap::new();
-    for db in &display_branches {
-        column_stack.insert(db.column, db.stack_index);
-    }
-
     // Render each branch
     for (i, db) in display_branches.iter().enumerate() {
         let branch = &db.name;
@@ -249,8 +240,6 @@ pub fn run(
         let entry = branch_status_map.get(branch);
         // Show cloud if branch exists on remote OR has a PR (PR implies it was pushed)
         let has_remote = remote_branches.contains(branch) || entry.and_then(|e| e.pr_number).is_some();
-        // Color based on stack_index so all branches in the same stack share a color
-        let color = DEPTH_COLORS[db.stack_index % DEPTH_COLORS.len()];
 
         // Check if we need a corner connector - this happens when the PREVIOUS branch was at a higher column
         // The corner shows that a side branch joins back to this level
@@ -262,23 +251,21 @@ pub fn run(
         let mut visual_width = 0;
         // Draw columns 0 to db.column
         for col in 0..=db.column {
+            let col_color = COLUMN_COLORS[col % COLUMN_COLORS.len()];
             if col == db.column {
                 // This is our column - draw circle
                 let circle = if is_current { "◉" } else { "○" };
-                tree.push_str(&format!("{}", circle.color(color)));
+                tree.push_str(&format!("{}", circle.color(col_color)));
                 visual_width += 1;
 
                 // Check if we need corner connector (side branch ending)
                 if needs_corner {
-                    tree.push_str(&format!("{}", "─┘".color(color)));
+                    tree.push_str(&format!("{}", "─┘".color(col_color)));
                     visual_width += 2;
                 }
             } else {
                 // Columns to our left - always draw vertical lines for active columns
-                // Use stack_index for color so vertical lines match their stack
-                let stack_idx = column_stack.get(&col).copied().unwrap_or(col);
-                let line_color = DEPTH_COLORS[stack_idx % DEPTH_COLORS.len()];
-                tree.push_str(&format!("{} ", "│".color(line_color)));
+                tree.push_str(&format!("{} ", "│".color(col_color)));
                 visual_width += 2;
             }
         }
@@ -355,24 +342,27 @@ pub fn run(
         println!("{}{}", tree, info_str);
     }
 
-    // Render trunk with corner connector (fp-style: ○─┘ for 1 col, ○─┴─┘ for 2, ○─┴─┴─┘ for 3, etc.)
+    // Render trunk with corner connector (fp-style: ○─┘ for 1 col, ○─┴─┘ for 2, etc.)
+    // Only connect columns used by direct trunk children, not nested columns
     let is_trunk_current = stack.trunk == current;
-    let trunk_color = DEPTH_COLORS[0];
+    let trunk_child_max_col = if sorted_trunk_children.is_empty() { 0 } else { sorted_trunk_children.len() - 1 };
 
     let mut trunk_tree = String::new();
     let mut trunk_visual_width = 0;
 
     let trunk_circle = if is_trunk_current { "◉" } else { "○" };
+    let trunk_color = COLUMN_COLORS[0];
     trunk_tree.push_str(&format!("{}", trunk_circle.color(trunk_color)));
     trunk_visual_width += 1;
 
-    // Show connectors for all columns: ─┴ for middle columns, ─┘ for the last
-    if max_column >= 1 {
-        for col in 1..=max_column {
-            if col < max_column {
-                trunk_tree.push_str(&format!("{}", "─┴".color(trunk_color)));
+    // Show connectors only for trunk children columns: ─┴ for middle, ─┘ for last
+    if trunk_child_max_col >= 1 {
+        for col in 1..=trunk_child_max_col {
+            let col_color = COLUMN_COLORS[col % COLUMN_COLORS.len()];
+            if col < trunk_child_max_col {
+                trunk_tree.push_str(&format!("{}", "─┴".color(col_color)));
             } else {
-                trunk_tree.push_str(&format!("{}", "─┘".color(trunk_color)));
+                trunk_tree.push_str(&format!("{}", "─┘".color(col_color)));
             }
             trunk_visual_width += 2;
         }
@@ -437,19 +427,17 @@ fn collect_display_branches_with_nesting(
     stack: &Stack,
     branch: &str,
     base_column: usize,
-    stack_index: usize,
     result: &mut Vec<DisplayBranch>,
     max_column: &mut usize,
     allowed: Option<&HashSet<String>>,
 ) {
-    collect_recursive(stack, branch, base_column, stack_index, result, max_column, allowed);
+    collect_recursive(stack, branch, base_column, result, max_column, allowed);
 }
 
 fn collect_recursive(
     stack: &Stack,
     branch: &str,
     column: usize,
-    stack_index: usize,
     result: &mut Vec<DisplayBranch>,
     max_column: &mut usize,
     allowed: Option<&HashSet<String>>,
@@ -477,7 +465,6 @@ fn collect_recursive(
                     stack,
                     child,
                     column + i,
-                    stack_index,  // All children inherit the same stack_index
                     result,
                     max_column,
                     allowed,
@@ -490,7 +477,6 @@ fn collect_recursive(
     result.push(DisplayBranch {
         name: branch.to_string(),
         column,
-        stack_index,
     });
 }
 
