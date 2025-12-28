@@ -6,6 +6,7 @@
 
   <p>
     <a href="https://github.com/cesarferreira/stax/actions/workflows/rust-tests.yml"><img alt="CI" src="https://github.com/cesarferreira/stax/actions/workflows/rust-tests.yml/badge.svg"></a>
+    <a href="https://crates.io/crates/stax"><img alt="Crates.io" src="https://img.shields.io/crates/v/stax"></a>
     <img alt="Performance" src="https://img.shields.io/badge/~21ms-startup-blue">
     <img alt="TUI" src="https://img.shields.io/badge/TUI-ratatui-5f5fff">
     <img alt="License" src="https://img.shields.io/badge/license-MIT-green">
@@ -47,8 +48,8 @@ Each branch is a focused PR. Reviewers see small diffs. You ship faster.
 # Homebrew (macOS/Linux)
 brew tap cesarferreira/tap && brew install stax
 
-# Or with cargo
-cargo install --git https://github.com/cesarferreira/stax
+# Or with cargo binstall
+cargo binstall stax
 ```
 
 ## Quick Start
