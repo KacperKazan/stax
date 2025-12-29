@@ -10,9 +10,11 @@ pub fn run() -> Result<()> {
     let current = repo.current_branch()?;
     let stack = Stack::load(&repo)?;
 
-    // Get descendants that need restacking
-    let descendants = stack.descendants(&current);
-    let branches_to_restack: Vec<String> = descendants
+    // Get current branch + descendants that need restacking
+    let mut upstack = vec![current.clone()];
+    upstack.extend(stack.descendants(&current));
+
+    let branches_to_restack: Vec<String> = upstack
         .into_iter()
         .filter(|b| {
             stack
@@ -48,9 +50,8 @@ pub fn run() -> Result<()> {
     }
 
     println!(
-        "Restacking {} branch(es) above {}...",
-        branches_to_restack.len().to_string().cyan(),
-        current.blue()
+        "Restacking {} branch(es)...",
+        branches_to_restack.len().to_string().cyan()
     );
 
     // Begin transaction
