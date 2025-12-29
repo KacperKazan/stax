@@ -426,7 +426,8 @@ pub fn run(
 
     // Show restack hint
     let needs_restack = stack.needs_restack();
-    if !needs_restack.is_empty() && !quiet {
+    let config = Config::load().unwrap_or_default();
+    if !needs_restack.is_empty() && !quiet && config.ui.tips {
         println!();
         println!(
             "{}",

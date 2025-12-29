@@ -1,3 +1,4 @@
+use crate::config::Config;
 use crate::engine::{BranchMetadata, Stack};
 use crate::git::{GitRepo, RebaseResult};
 use crate::ops::receipt::{OpKind, PlanSummary};
@@ -35,14 +36,17 @@ pub fn run() -> Result<()> {
 
         if current_needs_restack {
             println!("{}", "✓ No descendants need restacking.".green());
-            println!(
-                "{}",
-                format!(
-                    "  Tip: '{}' itself needs restack. Run {} to include it.",
-                    current,
-                    "stax restack".cyan()
-                )
-            );
+            let config = Config::load().unwrap_or_default();
+            if config.ui.tips {
+                println!(
+                    "{}",
+                    format!(
+                        "  Tip: '{}' itself needs restack. Run {} to include it.",
+                        current,
+                        "stax restack".cyan()
+                    )
+                );
+            }
         } else {
             println!("{}", "✓ Upstack is up to date, nothing to restack.".green());
         }

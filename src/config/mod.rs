@@ -11,6 +11,8 @@ pub struct Config {
     pub branch: BranchConfig,
     #[serde(default)]
     pub remote: RemoteConfig,
+    #[serde(default)]
+    pub ui: UiConfig,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -42,6 +44,13 @@ pub struct RemoteConfig {
     pub api_base_url: Option<String>,
 }
 
+#[derive(Debug, Serialize, Deserialize)]
+pub struct UiConfig {
+    /// Whether to show contextual tips/suggestions (default: true)
+    #[serde(default = "default_tips")]
+    pub tips: bool,
+}
+
 impl Default for BranchConfig {
     fn default() -> Self {
         Self {
@@ -63,6 +72,14 @@ impl Default for RemoteConfig {
     }
 }
 
+impl Default for UiConfig {
+    fn default() -> Self {
+        Self {
+            tips: default_tips(),
+        }
+    }
+}
+
 fn default_replacement() -> String {
     "-".to_string()
 }
@@ -77,6 +94,10 @@ fn default_remote_provider() -> String {
 
 fn default_remote_base_url() -> String {
     "https://github.com".to_string()
+}
+
+fn default_tips() -> bool {
+    true
 }
 
 impl Config {
@@ -271,6 +292,7 @@ mod tests {
         assert_eq!(config.remote.name, "origin");
         assert_eq!(config.remote.provider, "github");
         assert_eq!(config.remote.base_url, "https://github.com");
+        assert!(config.ui.tips);
     }
 
     #[test]
@@ -411,5 +433,36 @@ mod tests {
             Some(v) => env::set_var("GITHUB_TOKEN", v),
             None => env::remove_var("GITHUB_TOKEN"),
         }
+    }
+
+    #[test]
+    fn test_default_ui_config() {
+        let ui_config = UiConfig::default();
+        assert!(ui_config.tips);
+    }
+
+    #[test]
+    fn test_ui_tips_serialization() {
+        // Test that tips=true serializes correctly
+        let config = Config::default();
+        let toml_str = toml::to_string(&config).unwrap();
+        assert!(toml_str.contains("[ui]"));
+        assert!(toml_str.contains("tips = true"));
+
+        // Test that tips=false deserializes correctly
+        let toml_with_tips_false = r#"
+[ui]
+tips = false
+"#;
+        let parsed: Config = toml::from_str(toml_with_tips_false).unwrap();
+        assert!(!parsed.ui.tips);
+
+        // Test that missing [ui] section defaults tips to true
+        let toml_without_ui = r#"
+[branch]
+prefix = "test/"
+"#;
+        let parsed: Config = toml::from_str(toml_without_ui).unwrap();
+        assert!(parsed.ui.tips);
     }
 }

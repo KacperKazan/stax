@@ -421,7 +421,8 @@ pub fn run(
 
     // Show restack hint (only in verbose mode to reduce noise in simple ls)
     let needs_restack = stack.needs_restack();
-    if !needs_restack.is_empty() && !quiet && verbose {
+    let config = Config::load().unwrap_or_default();
+    if !needs_restack.is_empty() && !quiet && verbose && config.ui.tips {
         println!();
         println!(
             "{}",
