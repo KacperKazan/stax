@@ -426,11 +426,12 @@ pub fn run(
 
     // Show restack hint
     let needs_restack = stack.needs_restack();
-    if !needs_restack.is_empty() && !quiet {
+    let config = Config::load().unwrap_or_default();
+    if !needs_restack.is_empty() && !quiet && config.ui.tips {
         println!();
         println!(
             "{}",
-            format!("⟳ {} branch(es) need restacking", needs_restack.len()).bright_yellow()
+            format!("⟳ {} {} need restacking", needs_restack.len(), if needs_restack.len() == 1 { "branch" } else { "branches" }).bright_yellow()
         );
         println!("Run {} to rebase.", "stax rs --restack".bright_cyan());
     }

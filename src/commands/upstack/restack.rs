@@ -1,3 +1,4 @@
+use crate::config::Config;
 use crate::engine::{BranchMetadata, Stack};
 use crate::git::{GitRepo, RebaseResult};
 use crate::ops::receipt::{OpKind, PlanSummary};
@@ -35,23 +36,28 @@ pub fn run() -> Result<()> {
 
         if current_needs_restack {
             println!("{}", "✓ No descendants need restacking.".green());
-            println!(
-                "{}",
-                format!(
-                    "  Tip: '{}' itself needs restack. Run {} to include it.",
-                    current,
-                    "stax restack".cyan()
-                )
-            );
+            let config = Config::load().unwrap_or_default();
+            if config.ui.tips {
+                println!(
+                    "{}",
+                    format!(
+                        "  Tip: '{}' itself needs restack. Run {} to include it.",
+                        current,
+                        "stax restack".cyan()
+                    )
+                );
+            }
         } else {
             println!("{}", "✓ Upstack is up to date, nothing to restack.".green());
         }
         return Ok(());
     }
 
+    let branch_word = if branches_to_restack.len() == 1 { "branch" } else { "branches" };
     println!(
-        "Restacking {} branch(es)...",
-        branches_to_restack.len().to_string().cyan()
+        "Restacking {} {}...",
+        branches_to_restack.len().to_string().cyan(),
+        branch_word
     );
 
     // Begin transaction
@@ -60,7 +66,7 @@ pub fn run() -> Result<()> {
     tx.set_plan_summary(PlanSummary {
         branches_to_rebase: branches_to_restack.len(),
         branches_to_push: 0,
-        description: vec![format!("Upstack restack {} branch(es)", branches_to_restack.len())],
+        description: vec![format!("Upstack restack {} {}", branches_to_restack.len(), branch_word)],
     });
     tx.snapshot()?;
 

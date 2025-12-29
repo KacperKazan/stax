@@ -1,3 +1,4 @@
+use crate::config::Config;
 use crate::engine::BranchMetadata;
 use crate::git::{GitRepo, RebaseResult};
 use anyhow::Result;
@@ -27,13 +28,19 @@ pub fn run() -> Result<()> {
             }
 
             println!("{}", "✓ Rebase completed successfully!".green());
-            println!();
-            println!("You may want to run {} to continue restacking.", "stax rs".cyan());
+            let config = Config::load().unwrap_or_default();
+            if config.ui.tips {
+                println!();
+                println!("You may want to run {} to continue restacking.", "stax rs".cyan());
+            }
         }
         RebaseResult::Conflict => {
             println!("{}", "More conflicts to resolve.".yellow());
-            println!();
-            println!("Resolve the conflicts and run {} again.", "stax continue".cyan());
+            let config = Config::load().unwrap_or_default();
+            if config.ui.tips {
+                println!();
+                println!("Resolve the conflicts and run {} again.", "stax continue".cyan());
+            }
         }
     }
 

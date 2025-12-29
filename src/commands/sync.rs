@@ -204,7 +204,8 @@ pub fn run(
 
         if !merged.is_empty() {
             if !quiet {
-                println!("  Found {} merged branch(es):", merged.len().to_string().cyan());
+                let branch_word = if merged.len() == 1 { "branch" } else { "branches" };
+                println!("  Found {} merged {}:", merged.len().to_string().cyan(), branch_word);
                 for branch in &merged {
                     println!("    {} {}", "▸".bright_black(), branch);
                 }
@@ -404,7 +405,7 @@ pub fn run(
             tx.set_plan_summary(PlanSummary {
                 branches_to_rebase: needs_restack.len(),
                 branches_to_push: 0,
-                description: vec![format!("Sync restack {} branch(es)", needs_restack.len())],
+                description: vec![format!("Sync restack {} {}", needs_restack.len(), if needs_restack.len() == 1 { "branch" } else { "branches" })],
             });
             tx.snapshot()?;
 
@@ -608,7 +609,7 @@ fn find_merged_branches(
             .map(|s| s.trim().to_string())
             .collect();
 
-    for branch in stack.branches.keys() {
+    for (branch, info) in &stack.branches {
         // Skip trunk
         if branch == &stack.trunk {
             continue;
@@ -619,10 +620,16 @@ fn find_merged_branches(
             continue;
         }
 
+        // Only consider "remote deleted" if branch had a PR before (was pushed)
+        // This prevents false positives for branches that were never pushed
+        if info.pr_number.is_none() {
+            continue;
+        }
+
         // Check if remote branch was deleted (strong signal it was merged)
         let remote_ref = format!("{}/{}", remote_name, branch);
         if !remote_branches.contains(&remote_ref) {
-            // Remote branch doesn't exist - likely merged and deleted
+            // Remote branch doesn't exist and had a PR - likely merged and deleted
             merged.push(branch.clone());
         }
     }

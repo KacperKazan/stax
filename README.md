@@ -297,6 +297,9 @@ prefix = "cesar/"      # Auto-prefix branches: "auth" → "cesar/auth"
 [remote]
 name = "origin"
 provider = "github"    # github, gitlab, gitea
+
+[ui]
+tips = true            # Show contextual suggestions (default: true)
 ```
 
 ### GitHub Authentication
