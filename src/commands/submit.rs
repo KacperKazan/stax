@@ -3,6 +3,8 @@ use crate::engine::{BranchMetadata, Stack};
 use crate::git::GitRepo;
 use crate::github::pr::{generate_stack_comment, StackPrInfo};
 use crate::github::GitHubClient;
+use crate::ops::receipt::{OpKind, PlanSummary};
+use crate::ops::tx::Transaction;
 use crate::remote::{self, Provider, RemoteInfo};
 use anyhow::{Context, Result};
 use colored::Colorize;
@@ -322,6 +324,31 @@ pub fn run(
     // Now push branches that need it
     let branches_needing_push: Vec<_> = plans.iter().filter(|p| p.needs_push).collect();
 
+    // Create transaction if we have branches to push
+    let mut tx = if !branches_needing_push.is_empty() {
+        let mut tx = Transaction::begin(OpKind::Submit, &repo, quiet)?;
+        
+        // Plan local branches (for backup)
+        let branch_names: Vec<String> = branches_needing_push.iter().map(|p| p.branch.clone()).collect();
+        tx.plan_branches(&repo, &branch_names)?;
+        
+        // Plan remote refs (record current remote state before pushing)
+        for plan in &branches_needing_push {
+            tx.plan_remote_branch(&repo, &remote_info.name, &plan.branch)?;
+        }
+        
+        tx.set_plan_summary(PlanSummary {
+            branches_to_rebase: 0,
+            branches_to_push: branches_needing_push.len(),
+            description: vec![format!("Submit {} branch(es)", branches_needing_push.len())],
+        });
+        tx.snapshot()?;
+        
+        Some(tx)
+    } else {
+        None
+    };
+
     if !branches_needing_push.is_empty() {
         if !quiet {
             println!();
@@ -333,14 +360,42 @@ pub fn run(
                 print!("  {}... ", plan.branch);
                 std::io::Write::flush(&mut std::io::stdout()).ok();
             }
-            push_branch(repo.workdir()?, &remote_info.name, &plan.branch)?;
-            if !quiet {
-                println!("{}", "done".green());
+            
+            // Get local OID before push (this is what we're pushing)
+            let local_oid = repo.branch_commit(&plan.branch).ok();
+            
+            match push_branch(repo.workdir()?, &remote_info.name, &plan.branch) {
+                Ok(()) => {
+                    // Record after-OIDs
+                    if let Some(ref mut tx) = tx {
+                        let _ = tx.record_after(&repo, &plan.branch);
+                        if let Some(oid) = &local_oid {
+                            tx.record_remote_after(&remote_info.name, &plan.branch, oid);
+                        }
+                    }
+                    if !quiet {
+                        println!("{}", "done".green());
+                    }
+                }
+                Err(e) => {
+                    if let Some(tx) = tx {
+                        tx.finish_err(
+                            &format!("Push failed: {}", e),
+                            Some("push"),
+                            Some(&plan.branch),
+                        )?;
+                    }
+                    return Err(e);
+                }
             }
         }
     }
 
     if no_pr {
+        // Finish transaction successfully
+        if let Some(tx) = tx {
+            tx.finish_ok()?;
+        }
         if !quiet {
             println!();
             println!("{}", "✓ Branches pushed successfully!".green().bold());
@@ -510,6 +565,11 @@ pub fn run(
 
         Ok::<(), anyhow::Error>(())
     })?;
+
+    // Finish transaction successfully
+    if let Some(tx) = tx {
+        tx.finish_ok()?;
+    }
 
     Ok(())
 }

@@ -3,6 +3,8 @@ use crate::config::Config;
 use crate::engine::{BranchMetadata, Stack};
 use crate::git::{GitRepo, RebaseResult};
 use crate::github::GitHubClient;
+use crate::ops::receipt::{OpKind, PlanSummary};
+use crate::ops::tx::Transaction;
 use crate::remote::{Provider, RemoteInfo};
 use anyhow::{Context, Result};
 use colored::Colorize;
@@ -296,6 +298,16 @@ pub fn run(
                 println!("  {}", "All branches up to date.".dimmed());
             }
         } else {
+            // Begin transaction for restack phase
+            let mut tx = Transaction::begin(OpKind::SyncRestack, &repo, quiet)?;
+            tx.plan_branches(&repo, &needs_restack)?;
+            tx.set_plan_summary(PlanSummary {
+                branches_to_rebase: needs_restack.len(),
+                branches_to_push: 0,
+                description: vec![format!("Sync restack {} branch(es)", needs_restack.len())],
+            });
+            tx.snapshot()?;
+
             let mut summary: Vec<(String, String)> = Vec::new();
 
             for branch in &needs_restack {
@@ -318,6 +330,10 @@ pub fn run(
                             ..meta
                         };
                         updated_meta.write(repo.inner(), branch)?;
+                        
+                        // Record after-OID
+                        tx.record_after(&repo, branch)?;
+                        
                         if !quiet {
                             println!("{}", "done".green());
                         }
@@ -334,12 +350,23 @@ pub fn run(
                             println!("{}", "Stash kept to avoid conflicts.".yellow());
                         }
                         summary.push((branch.clone(), "conflict".to_string()));
+                        
+                        // Finish transaction with error
+                        tx.finish_err(
+                            "Rebase conflict",
+                            Some("restack"),
+                            Some(branch),
+                        )?;
+                        
                         return Ok(());
                     }
                 }
             }
 
             repo.checkout(&current)?;
+
+            // Finish transaction successfully
+            tx.finish_ok()?;
 
             if !quiet && !summary.is_empty() {
                 println!();

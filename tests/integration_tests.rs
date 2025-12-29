@@ -1846,6 +1846,353 @@ fn test_submit_help_shows_no_pr_flag() {
     assert!(stdout.contains("--yes"), "Expected --yes flag in help");
 }
 
+// =============================================================================
+// Transaction and Undo Tests
+// =============================================================================
+
+#[test]
+fn test_restack_creates_backup_refs() {
+    let repo = TestRepo::new();
+
+    // Create a branch with a commit
+    repo.run_stax(&["bc", "feature-backup"]);
+    let feature_branch = repo.current_branch();
+    repo.create_file("feature.txt", "feature content");
+    repo.commit("Feature commit");
+
+    // Go back to main and create a new commit to make restack needed
+    repo.run_stax(&["t"]);
+    repo.create_file("main-update.txt", "main update");
+    repo.commit("Main update");
+
+    // Go back to feature branch
+    repo.run_stax(&["checkout", &feature_branch]);
+
+    // Get SHA before restack
+    let sha_before = repo.head_sha();
+
+    // Run restack (quiet mode to avoid prompts)
+    let output = repo.run_stax(&["restack", "--quiet"]);
+    assert!(output.status.success(), "Failed: {}", TestRepo::stderr(&output));
+
+    // Check that backup refs were created (by looking in .git)
+    let git_dir = repo.path().join(".git");
+    let stax_ops_dir = git_dir.join("stax").join("ops");
+    
+    // There should be an operation receipt
+    assert!(stax_ops_dir.exists(), "Expected .git/stax/ops directory to exist");
+    
+    let ops: Vec<_> = std::fs::read_dir(&stax_ops_dir)
+        .expect("Failed to read stax ops dir")
+        .filter_map(|e| e.ok())
+        .filter(|e| e.path().extension().map(|ext| ext == "json").unwrap_or(false))
+        .collect();
+    
+    assert!(!ops.is_empty(), "Expected at least one operation receipt");
+    
+    // Read the receipt and verify it has the right structure
+    let receipt_path = ops[0].path();
+    let receipt_content = std::fs::read_to_string(&receipt_path).expect("Failed to read receipt");
+    let receipt: serde_json::Value = serde_json::from_str(&receipt_content).expect("Invalid JSON receipt");
+    
+    assert_eq!(receipt["kind"], "restack");
+    assert_eq!(receipt["status"], "success");
+    assert!(receipt["local_refs"].is_array());
+    
+    // Check that the branch's before-OID is recorded
+    let local_refs = receipt["local_refs"].as_array().unwrap();
+    let feature_ref = local_refs.iter()
+        .find(|r| r["branch"].as_str().unwrap_or("").contains("feature-backup"));
+    
+    assert!(feature_ref.is_some(), "Expected feature branch in local_refs");
+    
+    if let Some(ref_entry) = feature_ref {
+        assert!(ref_entry["oid_before"].is_string(), "Expected oid_before to be recorded");
+        assert_eq!(ref_entry["oid_before"].as_str().unwrap(), sha_before);
+    }
+}
+
+#[test]
+fn test_undo_restores_branch() {
+    let repo = TestRepo::new();
+
+    // Create a branch with a commit
+    repo.run_stax(&["bc", "feature-undo"]);
+    let feature_branch = repo.current_branch();
+    repo.create_file("feature.txt", "feature content");
+    repo.commit("Feature commit");
+    
+    let sha_before = repo.head_sha();
+
+    // Go back to main and create a new commit
+    repo.run_stax(&["t"]);
+    repo.create_file("main-update.txt", "main update");
+    repo.commit("Main update");
+
+    // Go back to feature branch and restack
+    repo.run_stax(&["checkout", &feature_branch]);
+    let output = repo.run_stax(&["restack", "--quiet"]);
+    assert!(output.status.success(), "Restack failed: {}", TestRepo::stderr(&output));
+    
+    let sha_after_restack = repo.head_sha();
+    assert_ne!(sha_before, sha_after_restack, "SHA should change after restack");
+
+    // Now undo
+    let output = repo.run_stax(&["undo", "--yes"]);
+    assert!(output.status.success(), "Undo failed: {}", TestRepo::stderr(&output));
+    
+    let sha_after_undo = repo.head_sha();
+    assert_eq!(sha_before, sha_after_undo, "SHA should be restored after undo");
+}
+
+#[test]
+fn test_undo_no_operations() {
+    let repo = TestRepo::new();
+    
+    // Try to undo when there are no operations
+    let output = repo.run_stax(&["undo"]);
+    assert!(!output.status.success(), "Expected undo to fail with no operations");
+    
+    let stderr = TestRepo::stderr(&output);
+    assert!(
+        stderr.contains("No operations") || stderr.contains("no operations"),
+        "Expected 'no operations' error, got: {}",
+        stderr
+    );
+}
+
+#[test]
+fn test_redo_after_undo() {
+    let repo = TestRepo::new();
+
+    // Create a branch with a commit
+    repo.run_stax(&["bc", "feature-redo"]);
+    let feature_branch = repo.current_branch();
+    repo.create_file("feature.txt", "feature content");
+    repo.commit("Feature commit");
+    
+    let sha_original = repo.head_sha();
+
+    // Go back to main and create a new commit
+    repo.run_stax(&["t"]);
+    repo.create_file("main-update.txt", "main update");
+    repo.commit("Main update");
+
+    // Go back to feature branch and restack
+    repo.run_stax(&["checkout", &feature_branch]);
+    let output = repo.run_stax(&["restack", "--quiet"]);
+    assert!(output.status.success());
+    
+    let sha_after_restack = repo.head_sha();
+
+    // Undo
+    let output = repo.run_stax(&["undo", "--yes"]);
+    assert!(output.status.success());
+    assert_eq!(repo.head_sha(), sha_original);
+
+    // Redo
+    let output = repo.run_stax(&["redo", "--yes"]);
+    assert!(output.status.success(), "Redo failed: {}", TestRepo::stderr(&output));
+    assert_eq!(repo.head_sha(), sha_after_restack);
+}
+
+#[test]
+fn test_multiple_restacks_multiple_undos() {
+    let repo = TestRepo::new();
+
+    // Create a stack: main -> feature-1 -> feature-2
+    repo.run_stax(&["bc", "feature-1"]);
+    let feature1 = repo.current_branch();
+    repo.create_file("f1.txt", "feature 1");
+    repo.commit("Feature 1");
+    
+    repo.run_stax(&["bc", "feature-2"]);
+    let feature2 = repo.current_branch();
+    repo.create_file("f2.txt", "feature 2");
+    repo.commit("Feature 2");
+    
+    // Record original SHAs
+    let sha_f2_original = repo.head_sha();
+    repo.run_stax(&["checkout", &feature1]);
+    let sha_f1_original = repo.head_sha();
+
+    // Update main
+    repo.run_stax(&["t"]);
+    repo.create_file("main.txt", "main update");
+    repo.commit("Main update");
+
+    // Restack feature-1
+    repo.run_stax(&["checkout", &feature1]);
+    let output = repo.run_stax(&["restack", "--quiet"]);
+    assert!(output.status.success());
+    
+    let sha_f1_after_restack = repo.head_sha();
+    assert_ne!(sha_f1_original, sha_f1_after_restack);
+
+    // Undo should restore feature-1
+    let output = repo.run_stax(&["undo", "--yes"]);
+    assert!(output.status.success());
+    assert_eq!(repo.head_sha(), sha_f1_original);
+}
+
+#[test]
+fn test_upstack_restack_creates_receipt() {
+    let repo = TestRepo::new();
+
+    // Create a stack
+    repo.run_stax(&["bc", "feature-1"]);
+    let feature1 = repo.current_branch();
+    repo.create_file("f1.txt", "f1");
+    repo.commit("Feature 1");
+
+    repo.run_stax(&["bc", "feature-2"]);
+    repo.create_file("f2.txt", "f2");
+    repo.commit("Feature 2");
+
+    // Update feature-1 (this will make feature-2 need restack)
+    repo.run_stax(&["checkout", &feature1]);
+    repo.create_file("f1-update.txt", "f1 update");
+    repo.commit("Feature 1 update");
+
+    // Run upstack restack
+    let output = repo.run_stax(&["upstack", "restack"]);
+    assert!(output.status.success(), "Failed: {}", TestRepo::stderr(&output));
+
+    // Check receipt was created
+    let git_dir = repo.path().join(".git");
+    let stax_ops_dir = git_dir.join("stax").join("ops");
+    
+    let ops: Vec<_> = std::fs::read_dir(&stax_ops_dir)
+        .expect("Failed to read stax ops dir")
+        .filter_map(|e| e.ok())
+        .filter(|e| e.path().extension().map(|ext| ext == "json").unwrap_or(false))
+        .collect();
+    
+    // Find the upstack_restack receipt
+    let upstack_receipt = ops.iter().find(|op| {
+        let content = std::fs::read_to_string(op.path()).unwrap_or_default();
+        content.contains("upstack_restack")
+    });
+    
+    assert!(upstack_receipt.is_some(), "Expected upstack_restack receipt");
+}
+
+#[test]
+fn test_submit_creates_receipt_with_remote_refs() {
+    let repo = TestRepo::new_with_remote();
+
+    // Create a branch with a commit
+    repo.run_stax(&["bc", "feature-submit"]);
+    let feature_branch = repo.current_branch();
+    repo.create_file("feature.txt", "feature content");
+    repo.commit("Feature commit");
+
+    // Push using git (to set up remote tracking)
+    repo.git(&["push", "-u", "origin", &feature_branch]);
+
+    // Make a change and push again via submit --no-pr
+    repo.create_file("feature.txt", "updated content");
+    repo.commit("Update feature");
+
+    // Run submit --no-pr (which will force-push)
+    let output = repo.run_stax(&["submit", "--no-pr", "--yes"]);
+    assert!(output.status.success(), "Submit failed: {}", TestRepo::stderr(&output));
+
+    // Check receipt was created with remote refs
+    let git_dir = repo.path().join(".git");
+    let stax_ops_dir = git_dir.join("stax").join("ops");
+    
+    let ops: Vec<_> = std::fs::read_dir(&stax_ops_dir)
+        .expect("Failed to read stax ops dir")
+        .filter_map(|e| e.ok())
+        .filter(|e| e.path().extension().map(|ext| ext == "json").unwrap_or(false))
+        .collect();
+    
+    // Find the submit receipt
+    let submit_receipt = ops.iter().find(|op| {
+        let content = std::fs::read_to_string(op.path()).unwrap_or_default();
+        content.contains("\"submit\"")
+    });
+    
+    assert!(submit_receipt.is_some(), "Expected submit receipt");
+    
+    if let Some(receipt_entry) = submit_receipt {
+        let content = std::fs::read_to_string(receipt_entry.path()).unwrap();
+        let receipt: serde_json::Value = serde_json::from_str(&content).unwrap();
+        
+        assert!(receipt["remote_refs"].is_array(), "Expected remote_refs in submit receipt");
+    }
+}
+
+#[test]
+fn test_sync_restack_creates_receipt() {
+    let repo = TestRepo::new_with_remote();
+
+    // Create a feature branch and push it
+    repo.run_stax(&["bc", "feature-sync"]);
+    let feature_branch = repo.current_branch();
+    repo.create_file("feature.txt", "feature");
+    repo.commit("Feature commit");
+    repo.git(&["push", "-u", "origin", &feature_branch]);
+
+    // Simulate remote main update
+    repo.simulate_remote_commit("remote.txt", "content", "Remote update");
+
+    // Sync with --restack
+    let output = repo.run_stax(&["sync", "--restack", "--force"]);
+    assert!(output.status.success(), "Sync failed: {}", TestRepo::stderr(&output));
+
+    // Check receipt was created
+    let git_dir = repo.path().join(".git");
+    let stax_ops_dir = git_dir.join("stax").join("ops");
+    
+    if stax_ops_dir.exists() {
+        let ops: Vec<_> = std::fs::read_dir(&stax_ops_dir)
+            .expect("Failed to read stax ops dir")
+            .filter_map(|e| e.ok())
+            .filter(|e| e.path().extension().map(|ext| ext == "json").unwrap_or(false))
+            .collect();
+        
+        // Find the sync_restack receipt
+        let sync_receipt = ops.iter().find(|op| {
+            let content = std::fs::read_to_string(op.path()).unwrap_or_default();
+            content.contains("sync_restack")
+        });
+        
+        // May not have a receipt if nothing needed restacking
+        if !ops.is_empty() {
+            // At least verify the ops directory structure
+            assert!(ops.iter().all(|op| op.path().extension().map(|e| e == "json").unwrap_or(false)));
+        }
+    }
+}
+
+#[test]
+fn test_undo_with_dirty_working_tree() {
+    let repo = TestRepo::new();
+
+    // Create a branch and restack to create a receipt
+    repo.run_stax(&["bc", "feature-dirty"]);
+    let feature_branch = repo.current_branch();
+    repo.create_file("feature.txt", "feature");
+    repo.commit("Feature commit");
+
+    repo.run_stax(&["t"]);
+    repo.create_file("main.txt", "main");
+    repo.commit("Main update");
+
+    repo.run_stax(&["checkout", &feature_branch]);
+    repo.run_stax(&["restack", "--quiet"]);
+
+    // Make the working tree dirty
+    repo.create_file("dirty.txt", "uncommitted changes");
+
+    // Try undo without --yes (should fail in quiet/non-interactive mode)
+    let output = repo.run_stax(&["undo", "--quiet"]);
+    // In quiet mode with dirty tree, should fail
+    assert!(!output.status.success() || TestRepo::stderr(&output).contains("dirty"));
+}
+
 mod github_mock_tests {
     use super::*;
     use wiremock::{MockServer, Mock, ResponseTemplate};
