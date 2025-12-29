@@ -521,6 +521,19 @@ fn find_merged_branches(
     }
 
     // Method 3: Check if branch has empty diff against trunk (catches squash/rebase merges)
+    // First get list of local branches to avoid diffing non-existent branches
+    let local_output = Command::new("git")
+        .args(["branch", "--format=%(refname:short)"])
+        .current_dir(workdir)
+        .output()
+        .context("Failed to list local branches")?;
+
+    let local_branches: std::collections::HashSet<String> =
+        String::from_utf8_lossy(&local_output.stdout)
+            .lines()
+            .map(|s| s.trim().to_string())
+            .collect();
+
     for branch in stack.branches.keys() {
         // Skip trunk
         if branch == &stack.trunk {
@@ -532,10 +545,16 @@ fn find_merged_branches(
             continue;
         }
 
+        // Skip if branch doesn't exist locally (will be caught by orphan check)
+        if !local_branches.contains(branch) {
+            continue;
+        }
+
         // Check if branch has any changes vs trunk
         let diff_output = Command::new("git")
             .args(["diff", "--quiet", &stack.trunk, branch])
             .current_dir(workdir)
+            .stderr(std::process::Stdio::null())
             .status();
 
         // --quiet returns 0 if no diff, 1 if there are differences
@@ -581,20 +600,7 @@ fn find_merged_branches(
     }
 
     // Method 5: Find orphaned branches (tracked but no longer exist locally or remotely)
-    // Get list of all local branches
-    let local_output = Command::new("git")
-        .args(["branch", "--format=%(refname:short)"])
-        .current_dir(workdir)
-        .output()
-        .context("Failed to list local branches")?;
-
-    let local_branches: std::collections::HashSet<String> =
-        String::from_utf8_lossy(&local_output.stdout)
-            .lines()
-            .map(|s| s.trim().to_string())
-            .collect();
-
-    // Check each tracked branch (remote_branches already fetched in Method 4)
+    // Reuse local_branches from Method 3, remote_branches from Method 4
     for branch in stack.branches.keys() {
         // Skip trunk
         if branch == &stack.trunk {
