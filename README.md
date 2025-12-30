@@ -266,8 +266,8 @@ stax ls
 ## Reading the Stack View
 
 ```
-○      feature/validation 1↑
-◉      feature/auth 2↑ 1↓ ⟳
+○        feature/validation 1↑
+◉        feature/auth 2↑ 1↓ ⟳
 │ ○    ☁ feature/payments PR #42
 ○─┘    ☁ main
 ```
@@ -437,6 +437,14 @@ Summary
   stax ls ran
    9.18 ± 0.43 times faster than gt ls
    16.23 ± 0.79 times faster than fp ls
+```
+
+```mermaid
+xychart-beta
+    title "ls benchmark (lower is better)"
+    x-axis ["freephite", "graphite", "stax"]
+    y-axis "Time (ms)" 0 --> 400
+    bar [369.5, 209.1, 22.8]
 ```
 
 ## License
