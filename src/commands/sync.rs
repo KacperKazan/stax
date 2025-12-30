@@ -212,9 +212,11 @@ pub fn run(
                     tokio::runtime::Runtime::new()
                         .ok()
                         .and_then(|rt| {
-                            GitHubClient::new(info.owner(), &info.repo, info.api_base_url.clone())
-                                .ok()
-                                .map(|client| (rt, client))
+                            // Must create client inside block_on - Octocrab requires runtime context
+                            rt.block_on(async {
+                                GitHubClient::new(info.owner(), &info.repo, info.api_base_url.clone()).ok()
+                            })
+                            .map(|client| (rt, client))
                         })
                 } else {
                     None
