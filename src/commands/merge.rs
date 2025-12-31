@@ -677,77 +677,52 @@ fn print_merge_preview(scope: &MergeScope, method: &MergeMethod) {
     );
 }
 
-/// Print a box with branch info
+/// Print branch info as a checklist
 fn print_branch_box(branches: &[MergeBranchInfo], included: bool) {
-    let width = 55;
-
-    // Top border
-    println!("  ┌{}┐", "─".repeat(width));
+    println!();
 
     for (idx, branch) in branches.iter().enumerate() {
         let pr_text = branch
             .pr_number
-            .map(|n| format!("(#{})", n))
-            .unwrap_or_else(|| "(no PR)".to_string());
+            .map(|n| format!("#{}", n))
+            .unwrap_or_else(|| "no PR".to_string());
 
-        let status = if included {
-            branch
-                .pr_status
-                .as_ref()
-                .map(|s| {
-                    let text = s.status_text();
-                    if s.is_ready() {
-                        format!("{} {}", "✓".green(), text.green())
-                    } else if s.is_waiting() {
-                        format!("{} {}", "⏳".yellow(), text.yellow())
-                    } else {
-                        format!("{} {}", "✗".red(), text.red())
-                    }
-                })
-                .unwrap_or_else(|| "? Unknown".dimmed().to_string())
-        } else {
-            "(not included)".dimmed().to_string()
-        };
-
-        // Branch line with number
-        let branch_display = format!(
-            "  {}. {} {}",
-            branch.position,
-            branch.branch,
-            pr_text.dimmed()
-        );
-        let padding = width.saturating_sub(strip_ansi(&branch_display).len() + strip_ansi(&status).len());
+        // Branch header
         println!(
-            "  │ {}{}{}│",
-            branch_display,
-            " ".repeat(padding),
-            status
+            "  {}. {} {}",
+            branch.position.to_string().bold(),
+            branch.branch.bold(),
+            format!("({})", pr_text).dimmed()
         );
 
         if included {
-            if let Some(ref status) = branch.pr_status {
-                // CI status
-                let ci_text = match status.ci_status {
-                    CiStatus::Success => format!("{} passed", "✓".green()),
-                    CiStatus::Pending => format!("{} running", "⏳".yellow()),
-                    CiStatus::Failure => format!("{} failed", "✗".red()),
-                    CiStatus::NoCi => format!("{} no checks", "✓".green()),
+            if let Some(ref pr_status) = branch.pr_status {
+                // Checklist items
+                let ci_check = match pr_status.ci_status {
+                    CiStatus::Success => format!("  {} CI checks passed", "✓".green()),
+                    CiStatus::Pending => format!("  {} CI checks running...", "○".yellow()),
+                    CiStatus::Failure => format!("  {} CI checks failed", "✗".red()),
+                    CiStatus::NoCi => format!("  {} No CI checks required", "✓".green()),
                 };
-                println!("  │     ├─ CI: {}{}│", ci_text, " ".repeat(width - 15 - strip_ansi(&ci_text).len()));
+                println!("{}", ci_check);
 
-                // Reviews
-                let review_text = if status.changes_requested {
-                    format!("{} changes requested", "✗".red())
-                } else if status.approvals > 0 {
-                    format!("{} {} approved", "✓".green(), status.approvals)
+                let review_check = if pr_status.changes_requested {
+                    format!("  {} Changes requested", "✗".red())
+                } else if pr_status.approvals > 0 {
+                    format!("  {} Approved ({} review{})", "✓".green(), pr_status.approvals, if pr_status.approvals == 1 { "" } else { "s" })
                 } else {
-                    format!("{} pending", "⏳".yellow())
+                    format!("  {} Awaiting review...", "○".yellow())
                 };
-                println!(
-                    "  │     ├─ Reviews: {}{}│",
-                    review_text,
-                    " ".repeat(width - 20 - strip_ansi(&review_text).len())
-                );
+                println!("{}", review_check);
+
+                let mergeable_check = if pr_status.mergeable == Some(false) {
+                    format!("  {} Has merge conflicts", "✗".red())
+                } else if pr_status.mergeable == Some(true) {
+                    format!("  {} No conflicts", "✓".green())
+                } else {
+                    format!("  {} Checking conflicts...", "○".yellow())
+                };
+                println!("{}", mergeable_check);
 
                 // Merge target
                 let merge_into = if branch.position == 1 {
@@ -755,37 +730,22 @@ fn print_branch_box(branches: &[MergeBranchInfo], included: bool) {
                 } else {
                     "main (after rebase)".to_string()
                 };
-                println!(
-                    "  │     └─ Merges into: {}{}│",
-                    merge_into,
-                    " ".repeat(width - 24 - merge_into.len())
-                );
-            }
-
-            // Current branch marker
-            if branch.is_current {
-                println!(
-                    "  │{}{}│",
-                    " ".repeat(width - 14),
-                    "← you are here".cyan()
-                );
+                println!("  {} Merge into {}", "→".dimmed(), merge_into);
+            } else {
+                println!("  {} Fetching status...", "○".yellow());
             }
         } else {
-            // For non-included branches, show they'll be rebased
-            println!(
-                "  │     └─ Will remain open, rebased onto main{}│",
-                " ".repeat(width - 47)
-            );
+            println!("  {} Not included in this merge", "·".dimmed());
+            println!("  {} Will be rebased onto main", "→".dimmed());
         }
 
-        // Separator between branches (except last)
+        // Add spacing between branches
         if idx < branches.len() - 1 {
-            println!("  ├{}┤", "─".repeat(width));
+            println!();
         }
     }
 
-    // Bottom border
-    println!("  └{}┘", "─".repeat(width));
+    println!();
 }
 
 /// Strip ANSI codes for length calculation
@@ -810,43 +770,73 @@ fn strip_ansi(s: &str) -> String {
     result
 }
 
+/// Calculate the display width of a string, accounting for ANSI codes and wide Unicode chars
+fn display_width(s: &str) -> usize {
+    let stripped = strip_ansi(s);
+    stripped.chars().map(char_width).sum()
+}
+
+/// Get the display width of a single character
+fn char_width(c: char) -> usize {
+    // Use unicode_width crate logic for accurate width calculation
+    // For now, use a simplified approach that works for our specific use case
+    match c {
+        // Control characters and zero-width
+        '\x00'..='\x1f' | '\x7f' => 0,
+        // ASCII is width 1
+        '\x20'..='\x7e' => 1,
+        // Box drawing characters are width 1
+        '─' | '│' | '┌' | '┐' | '└' | '┘' | '├' | '┤' | '┬' | '┴' | '┼' 
+        | '╭' | '╮' | '╯' | '╰' | '║' | '═' => 1,
+        // Arrows - typically width 1 in most terminals
+        '←' | '→' | '↑' | '↓' => 1,
+        // Checkmarks and X marks - width 1 in most monospace fonts
+        '✓' | '✗' | '✔' | '✘' => 1,
+        // Everything else (including emojis) - assume width 2
+        _ => 2,
+    }
+}
+
 fn print_header(title: &str) {
-    let width = 56;
-    let padding = (width - title.len()) / 2;
+    let width: usize = 56;
+    let title_width = display_width(title);
+    let padding = width.saturating_sub(title_width) / 2;
     println!("╭{}╮", "─".repeat(width));
     println!(
         "│{}{}{}│",
         " ".repeat(padding),
         title.bold(),
-        " ".repeat(width - padding - title.len())
+        " ".repeat(width.saturating_sub(padding + title_width))
     );
     println!("╰{}╯", "─".repeat(width));
 }
 
 fn print_header_success(title: &str) {
-    let width = 56;
+    let width: usize = 56;
     let full_title = format!("✓ {}", title);
-    let padding = (width - full_title.len() + 2) / 2; // +2 for the checkmark
+    let title_width = display_width(&full_title);
+    let padding = width.saturating_sub(title_width) / 2;
     println!("╭{}╮", "─".repeat(width));
     println!(
         "│{}{}{}│",
         " ".repeat(padding),
         full_title.green().bold(),
-        " ".repeat(width - padding - full_title.len() + 2)
+        " ".repeat(width.saturating_sub(padding + title_width))
     );
     println!("╰{}╯", "─".repeat(width));
 }
 
 fn print_header_error(title: &str) {
-    let width = 56;
+    let width: usize = 56;
     let full_title = format!("✗ {}", title);
-    let padding = (width - full_title.len() + 2) / 2;
+    let title_width = display_width(&full_title);
+    let padding = width.saturating_sub(title_width) / 2;
     println!("╭{}╮", "─".repeat(width));
     println!(
         "│{}{}{}│",
         " ".repeat(padding),
         full_title.red().bold(),
-        " ".repeat(width - padding - full_title.len() + 2)
+        " ".repeat(width.saturating_sub(padding + title_width))
     );
     println!("╰{}╯", "─".repeat(width));
 }
@@ -957,6 +947,35 @@ mod tests {
     fn test_strip_ansi_preserves_unicode() {
         let with_emoji = "\x1b[32m✓\x1b[0m Success 🎉";
         assert_eq!(strip_ansi(with_emoji), "✓ Success 🎉");
+    }
+
+    #[test]
+    fn test_display_width_ascii() {
+        assert_eq!(display_width("hello"), 5);
+        assert_eq!(display_width("hello world"), 11);
+    }
+
+    #[test]
+    fn test_display_width_symbols() {
+        // Check marks and X marks are width 1
+        assert_eq!(display_width("✓"), 1);
+        assert_eq!(display_width("✗"), 1);
+        // Other emojis are width 2
+        assert_eq!(display_width("⏳"), 2);
+    }
+
+    #[test]
+    fn test_display_width_mixed() {
+        // "✓ passed" = 1 (checkmark) + 1 (space) + 6 (passed) = 8
+        assert_eq!(display_width("✓ passed"), 8);
+        // "~ pending" = 1 (~) + 1 (space) + 7 (pending) = 9 (using ASCII now)
+        assert_eq!(display_width("~ pending"), 9);
+    }
+
+    #[test]
+    fn test_display_width_with_ansi() {
+        // ANSI codes should be ignored
+        assert_eq!(display_width("\x1b[32m✓\x1b[0m passed"), 8);
     }
 
     #[test]
