@@ -36,11 +36,14 @@ Each branch is a focused PR. Reviewers see small diffs. You ship faster.
 
 ## Why stax?
 
-- **Fast** - Native Rust binary, runs in ~21ms (17x faster than alternatives)
-- **Interactive TUI** - Full terminal UI with diff viewer, reorder mode, and keyboard shortcuts
-- **Visual** - Beautiful tree rendering showing your entire stack at a glance
-- **Smart** - Tracks what needs rebasing, shows PR status, handles conflicts gracefully
-- **Compatible** - Uses same metadata format as freephite (migrate instantly)
+stax is a modern stacked-branch workflow that keeps PRs small, rebases safe, and the whole stack easy to reason about.
+
+- **Blazing fast** - Native Rust binary (~22ms `stax ls` on a 10-branch stack)
+- **Terminal UX** - Interactive TUI with tree view, PR status, diff viewer, and reorder mode
+- **Ship stacks, not mega-PRs** - Submit/update a whole stack of PRs with correct bases in one command
+- **Safe history rewriting** - Transactional restacks + automatic backups + `stax undo` / `stax redo`
+- **Merge the stack for you** - Cascade merge bottom → current, with rebase/PR-base updates along the way
+- **Drop-in compatible** - Uses freephite metadata format—existing stacks migrate instantly
 
 ## Install
 
