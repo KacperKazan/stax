@@ -7,6 +7,7 @@ mod github;
 mod ops;
 mod remote;
 mod tui;
+mod update;
 
 use anyhow::Result;
 use clap::{Parser, Subcommand};
@@ -517,22 +518,40 @@ fn main() -> Result<()> {
         None => {
             // TUI requires initialized repo
             commands::init::ensure_initialized()?;
-            return tui::run();
+            let result = tui::run();
+            update::show_update_notification();
+            update::check_in_background();
+            return result;
         }
     };
 
     // Commands that don't need repo initialization
     match &command {
-        Commands::Auth { token } => return commands::auth::run(token.clone()),
-        Commands::Config => return commands::config::run(),
-        Commands::Doctor => return commands::doctor::run(),
+        Commands::Auth { token } => {
+            let result = commands::auth::run(token.clone());
+            update::show_update_notification();
+            update::check_in_background();
+            return result;
+        }
+        Commands::Config => {
+            let result = commands::config::run();
+            update::show_update_notification();
+            update::check_in_background();
+            return result;
+        }
+        Commands::Doctor => {
+            let result = commands::doctor::run();
+            update::show_update_notification();
+            update::check_in_background();
+            return result;
+        }
         _ => {}
     }
 
     // Ensure repo is initialized for all other commands
     commands::init::ensure_initialized()?;
 
-    match command {
+    let result = match command {
         Commands::Status {
             json,
             stack,
@@ -676,5 +695,11 @@ fn main() -> Result<()> {
         } => commands::branch::create::run(name, message, from, prefix, all),
         Commands::Bu { count } => commands::navigate::up(count),
         Commands::Bd { count } => commands::navigate::down(count),
-    }
+    };
+
+    // Show update notification (from cache, instant) and spawn background check for next run
+    update::show_update_notification();
+    update::check_in_background();
+
+    result
 }
