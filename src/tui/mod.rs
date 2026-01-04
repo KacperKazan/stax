@@ -148,7 +148,8 @@ fn handle_normal_action(app: &mut App, action: KeyAction) -> Result<()> {
             app.mode = Mode::Confirm(ConfirmAction::RestackAll);
         }
         KeyAction::Submit => {
-            run_external_command(app, &["submit"])?;
+            // Use --no-prompt since TUI can't handle interactive stdin
+            run_external_command(app, &["submit", "--no-prompt"])?;
         }
         KeyAction::OpenPr => {
             if let Some(branch) = app.selected_branch() {
