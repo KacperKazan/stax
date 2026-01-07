@@ -316,6 +316,19 @@ enum Commands {
         plain: bool,
     },
 
+    /// Show CI status for all branches in the stack
+    Ci {
+        /// Show all stacks
+        #[arg(long)]
+        all: bool,
+        /// Output JSON for scripting
+        #[arg(long)]
+        json: bool,
+        /// Force refresh (bypass cache)
+        #[arg(long)]
+        refresh: bool,
+    },
+
     /// Split the current branch into multiple stacked branches (interactive)
     Split,
 
@@ -669,6 +682,7 @@ fn main() -> Result<()> {
         } => commands::branch::create::run(name, message, from, prefix, all),
         Commands::Pr => commands::pr::run(),
         Commands::Comments { plain } => commands::comments::run(plain),
+        Commands::Ci { all, json, refresh } => commands::ci::run(all, json, refresh),
         Commands::Split => commands::split::run(),
         Commands::Rename { name, edit, push, literal } => commands::branch::rename::run(name, edit, push, literal),
         Commands::Undo { op_id, yes, no_push, quiet } => commands::undo::run(op_id, yes, no_push, quiet),
