@@ -156,9 +156,6 @@ Split a branch with many commits into multiple stacked branches:
 stax split
 ```
 
-<p align="center">
-  <img alt="stax split mode" src="assets/split-mode.png" width="800">
-</p>
 
 **How it works:**
 1. Run `stax split` on a branch with multiple commits
@@ -205,7 +202,22 @@ Split uses the transaction system, so you can `stax undo` if needed.
 | `stax pr` | Open current branch's PR in browser |
 | `stax copy` | Copy branch name to clipboard |
 | `stax copy --pr` | Copy PR URL to clipboard |
+| `stax standup` | Show your recent activity for standups |
 | `stax undo` | Undo last operation (restack, submit, etc.) |
+
+## Standup Summary
+
+Struggling to remember what you worked on yesterday? Run `stax standup` to get a quick summary of your recent activity:
+
+![Standup Summary](assets/standup.png)
+
+Shows your merged PRs, opened PRs, recent pushes, and anything that needs attention - perfect for daily standups.
+
+```bash
+stax standup              # Last 24 hours (default)
+stax standup --hours 48   # Look back further
+stax standup --json       # For scripting
+```
 
 ## Safe History Rewriting with Undo
 
@@ -604,6 +616,9 @@ stax uses the same metadata format as freephite and supports similar commands:
 | `stax copy --pr` | Copy PR URL to clipboard |
 | `stax comments` | Show PR comments with rendered markdown |
 | `stax comments --plain` | Show PR comments as raw markdown |
+| `stax standup` | Show your recent activity for standups |
+| `stax standup --hours 48` | Look back 48 hours instead of default 24 |
+| `stax standup --json` | Output activity as JSON for scripting |
 
 ### Common Flags
 - `stax create -m "msg"` - Create branch with commit message
