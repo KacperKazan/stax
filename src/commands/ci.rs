@@ -200,22 +200,16 @@ pub fn run(all: bool, json: bool, refresh: bool) -> Result<()> {
     let pending_count = statuses.iter().filter(|s| s.overall_status.as_deref() == Some("pending")).count();
     let no_ci_count = statuses.iter().filter(|s| s.overall_status.is_none()).count();
 
-    let mut summary_parts: Vec<String> = Vec::new();
-    if success_count > 0 {
-        summary_parts.push(format!("{} passed", success_count).green().to_string());
-    }
-    if failure_count > 0 {
-        summary_parts.push(format!("{} failed", failure_count).red().to_string());
-    }
-    if pending_count > 0 {
-        summary_parts.push(format!("{} pending", pending_count).yellow().to_string());
-    }
-    if no_ci_count > 0 {
-        summary_parts.push(format!("{} no CI", no_ci_count).dimmed().to_string());
-    }
-
-    if !summary_parts.is_empty() {
-        println!("{}", summary_parts.join(" · "));
+    if !statuses.is_empty() {
+        println!(
+            "{}: {}, {}: {}, {}: {}",
+            "passing".green(),
+            success_count,
+            "failing".red(),
+            failure_count,
+            "pending".yellow(),
+            pending_count
+        );
     }
 
     Ok(())
@@ -258,8 +252,8 @@ async fn fetch_check_runs(
     for run in &check_runs {
         match run.status.as_str() {
             "completed" => match run.conclusion.as_deref() {
-                Some("success") | Some("skipped") | Some("neutral") => {}
-                Some("failure") | Some("timed_out") | Some("cancelled") | Some("action_required") => {
+                Some("success") | Some("skipped") | Some("neutral") | Some("cancelled") => {}
+                Some("failure") | Some("timed_out") | Some("action_required") => {
                     has_failure = true;
                     all_success = false;
                 }
