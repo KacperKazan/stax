@@ -6,7 +6,6 @@ use crate::remote::RemoteInfo;
 use anyhow::Result;
 use colored::Colorize;
 use serde::{Deserialize, Serialize};
-use std::collections::HashMap;
 
 /// Individual check run info
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -44,7 +43,7 @@ struct CheckRunDetail {
     html_url: Option<String>,
 }
 
-pub fn run(all: bool, json: bool, refresh: bool) -> Result<()> {
+pub fn run(all: bool, json: bool, _refresh: bool) -> Result<()> {
     let repo = GitRepo::open()?;
     let current = repo.current_branch()?;
     let stack = Stack::load(&repo)?;
@@ -198,16 +197,20 @@ pub fn run(all: bool, json: bool, refresh: bool) -> Result<()> {
     let success_count = statuses.iter().filter(|s| s.overall_status.as_deref() == Some("success")).count();
     let failure_count = statuses.iter().filter(|s| s.overall_status.as_deref() == Some("failure")).count();
     let pending_count = statuses.iter().filter(|s| s.overall_status.as_deref() == Some("pending")).count();
-    let no_ci_count = statuses.iter().filter(|s| s.overall_status.is_none()).count();
+    let _no_ci_count = statuses.iter().filter(|s| s.overall_status.is_none()).count();
 
     if !statuses.is_empty() {
+        let total = statuses.len();
+        let branch_word = if total == 1 { "branch" } else { "branches" };
+        println!("{}", "─".repeat(40).dimmed());
+        println!("{}", format!("Summary: {} {}", total, branch_word).bold());
         println!(
-            "{}: {}, {}: {}, {}: {}",
-            "passing".green(),
+            "  {} passing: {}, {} failing: {}, {} pending: {}",
+            "✓".green(),
             success_count,
-            "failing".red(),
+            "✗".red(),
             failure_count,
-            "pending".yellow(),
+            "●".yellow(),
             pending_count
         );
     }

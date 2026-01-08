@@ -595,6 +595,9 @@ stax uses the same metadata format as freephite and supports similar commands:
 | `stax doctor` | Check repo health |
 | `stax continue` | Continue after resolving conflicts |
 | `stax pr` | Open PR in browser |
+| `stax ci` | Show CI status for branches in current stack |
+| `stax ci --all` | Show CI status for all tracked branches |
+| `stax ci --json` | Output CI status as JSON |
 | `stax comments` | Show PR comments with rendered markdown |
 | `stax comments --plain` | Show PR comments as raw markdown |
 
