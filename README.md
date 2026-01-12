@@ -550,15 +550,14 @@ The credentials file is created with `600` permissions (read/write for owner onl
 
 ## Claude Code Integration
 
-Teach Claude Code how to use stax by adding the skills file to your configuration:
+Teach Claude Code how to use stax by installing the skills file:
 
 ```bash
-# Add stax skills to Claude Code
-echo "import: $(brew --prefix)/Cellar/stax/*/share/skills.md" >> ~/.claude/CLAUDE.md
+# Create skills directory if it doesn't exist
+mkdir -p ~/.claude/skills
 
-# Or manually copy the skills file
-curl -o ~/.claude/stax-skills.md https://raw.githubusercontent.com/cesarferreira/stax/main/skills.md
-echo "import: ~/.claude/stax-skills.md" >> ~/.claude/CLAUDE.md
+# Download the stax skills file
+curl -o ~/.claude/skills/stax.md https://raw.githubusercontent.com/cesarferreira/stax/main/skills.md
 ```
 
 This enables Claude Code to help you with stax workflows, create stacked branches, submit PRs, and more.
