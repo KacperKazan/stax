@@ -548,6 +548,21 @@ stax auth
 
 The credentials file is created with `600` permissions (read/write for owner only).
 
+## Claude Code Integration
+
+Teach Claude Code how to use stax by adding the skills file to your configuration:
+
+```bash
+# Add stax skills to Claude Code
+echo "import: $(brew --prefix)/Cellar/stax/*/share/skills.md" >> ~/.claude/CLAUDE.md
+
+# Or manually copy the skills file
+curl -o ~/.claude/stax-skills.md https://raw.githubusercontent.com/cesarferreira/stax/main/skills.md
+echo "import: ~/.claude/stax-skills.md" >> ~/.claude/CLAUDE.md
+```
+
+This enables Claude Code to help you with stax workflows, create stacked branches, submit PRs, and more.
+
 ## Freephite/Graphite Compatibility
 
 stax uses the same metadata format as freephite and supports similar commands:
