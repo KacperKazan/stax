@@ -39,7 +39,14 @@ pub fn run(
     labels: Vec<String>,
     assignees: Vec<String>,
     quiet: bool,
+    template: Option<String>,
+    no_template: bool,
+    edit: bool,
 ) -> Result<()> {
+    let _ = template; // Will be used in Task 4
+    let _ = no_template; // Will be used in Task 4
+    let _ = edit; // Will be used in Task 4
+
     let repo = GitRepo::open()?;
     let current = repo.current_branch()?;
     let stack = Stack::load(&repo)?;

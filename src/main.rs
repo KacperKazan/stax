@@ -114,6 +114,15 @@ enum Commands {
         /// Suppress extra output
         #[arg(long)]
         quiet: bool,
+        /// Specify template by name (skip picker)
+        #[arg(long)]
+        template: Option<String>,
+        /// Skip template selection (no template)
+        #[arg(long)]
+        no_template: bool,
+        /// Always open editor for PR body
+        #[arg(long)]
+        edit: bool,
     },
 
     /// Merge PRs from bottom of stack up to current branch
@@ -642,6 +651,9 @@ fn main() -> Result<()> {
             labels,
             assignees,
             quiet,
+            template,
+            no_template,
+            edit,
         } => commands::submit::run(
             draft,
             no_pr,
@@ -652,6 +664,9 @@ fn main() -> Result<()> {
             labels,
             assignees,
             quiet,
+            template,
+            no_template,
+            edit,
         ),
         Commands::Merge {
             all,
