@@ -578,6 +578,51 @@ stax uses the same metadata format as freephite and supports similar commands:
 
 **Migration is instant** - just install stax and your existing stacks work.
 
+## PR Templates
+
+stax automatically discovers PR templates in your repository:
+
+### Single Template
+If you have one template at `.github/PULL_REQUEST_TEMPLATE.md`, stax uses it automatically:
+
+```bash
+stax submit  # Auto-uses template, shows "Edit body?" prompt
+```
+
+### Multiple Templates
+Place templates in `.github/PULL_REQUEST_TEMPLATE/` directory:
+
+```
+.github/
+  └── PULL_REQUEST_TEMPLATE/
+      ├── feature.md
+      ├── bugfix.md
+      └── docs.md
+```
+
+stax shows an interactive fuzzy-search picker:
+
+```bash
+stax submit
+# ? Select PR template
+#   > No template
+#     bugfix
+#     feature
+#     docs
+```
+
+### Template Control Flags
+
+- `--template <name>`: Skip picker, use specific template
+- `--no-template`: Don't use any template
+- `--edit`: Always open $EDITOR for body (regardless of template)
+
+```bash
+stax submit --template bugfix  # Use bugfix.md directly
+stax submit --no-template      # Empty body
+stax submit --edit             # Force editor open
+```
+
 ## All Commands
 
 <details>
@@ -660,6 +705,9 @@ stax uses the same metadata format as freephite and supports similar commands:
 - `stax submit --draft` - Create PRs as drafts
 - `stax submit --yes` - Auto-approve prompts
 - `stax submit --no-prompt` - Use defaults, skip interactive prompts
+- `stax submit --template <name>` - Use specific template by name (skip picker)
+- `stax submit --no-template` - Skip template selection (no template)
+- `stax submit --edit` - Always open editor for PR body
 - `stax submit --reviewers alice,bob` - Add reviewers
 - `stax submit --labels bug,urgent` - Add labels
 - `stax submit --assignees alice` - Assign users
