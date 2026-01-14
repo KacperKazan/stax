@@ -154,11 +154,7 @@ fn parse_remote_url(url: &str) -> Result<(String, String)> {
             .trim_end_matches(".git")
             .to_string();
 
-        let host = host_part
-            .split('@')
-            .nth(1)
-            .unwrap_or(host_part)
-            .to_string();
+        let host = host_part.split('@').nth(1).unwrap_or(host_part).to_string();
         return Ok((host, path));
     }
 
@@ -263,7 +259,8 @@ mod tests {
 
     #[test]
     fn test_parse_nested_namespace() {
-        let (host, path) = parse_remote_url("https://gitlab.com/group/subgroup/project.git").unwrap();
+        let (host, path) =
+            parse_remote_url("https://gitlab.com/group/subgroup/project.git").unwrap();
         assert_eq!(host, "gitlab.com");
         assert_eq!(path, "group/subgroup/project");
     }

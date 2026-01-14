@@ -54,7 +54,8 @@ pub fn run(target: CopyTarget) -> Result<()> {
     };
 
     // Copy to clipboard
-    let mut clipboard = Clipboard::new().map_err(|e| anyhow::anyhow!("Failed to access clipboard: {}", e))?;
+    let mut clipboard =
+        Clipboard::new().map_err(|e| anyhow::anyhow!("Failed to access clipboard: {}", e))?;
     clipboard
         .set_text(&text)
         .map_err(|e| anyhow::anyhow!("Failed to copy to clipboard: {}", e))?;

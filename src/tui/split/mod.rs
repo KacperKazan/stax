@@ -1,8 +1,8 @@
 mod app;
 mod ui;
 
-use app::{SplitApp, SplitMode};
 use anyhow::Result;
+use app::{SplitApp, SplitMode};
 use crossterm::{
     event::{self, Event, KeyCode, KeyModifiers},
     execute,
@@ -33,7 +33,10 @@ pub fn run() -> Result<()> {
 }
 
 /// Main event loop
-fn run_app(terminal: &mut Terminal<CrosstermBackend<io::Stdout>>, app: &mut SplitApp) -> Result<()> {
+fn run_app(
+    terminal: &mut Terminal<CrosstermBackend<io::Stdout>>,
+    app: &mut SplitApp,
+) -> Result<()> {
     loop {
         // Draw
         terminal.draw(|f| ui::render(f, app))?;

@@ -8,7 +8,12 @@ use std::io::IsTerminal;
 use std::process::Command;
 
 /// Rename the current branch and optionally edit the commit message
-pub fn run(new_name: Option<String>, edit_message: bool, push_remote: bool, literal: bool) -> Result<()> {
+pub fn run(
+    new_name: Option<String>,
+    edit_message: bool,
+    push_remote: bool,
+    literal: bool,
+) -> Result<()> {
     let is_interactive = std::io::stdin().is_terminal();
     let repo = GitRepo::open()?;
     let old_name = repo.current_branch()?;
@@ -61,7 +66,11 @@ pub fn run(new_name: Option<String>, edit_message: bool, push_remote: bool, lite
         .context("Failed to rename branch")?;
 
     if !status.success() {
-        anyhow::bail!("Failed to rename branch from '{}' to '{}'", old_name, new_name);
+        anyhow::bail!(
+            "Failed to rename branch from '{}' to '{}'",
+            old_name,
+            new_name
+        );
     }
 
     println!(
@@ -92,7 +101,8 @@ pub fn run(new_name: Option<String>, edit_message: bool, push_remote: bool, lite
 
     // 4. Handle remote branch
     let remote_name = config.remote_name();
-    let remote_branches = crate::remote::get_remote_branches(workdir, remote_name).unwrap_or_default();
+    let remote_branches =
+        crate::remote::get_remote_branches(workdir, remote_name).unwrap_or_default();
 
     if remote_branches.contains(&old_name) {
         let should_push = if push_remote {

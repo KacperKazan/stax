@@ -134,7 +134,9 @@ fn test_ci_combined_flags() {
     // Should not fail with flag parsing errors
     let stderr = TestRepo::stderr(&output);
     assert!(
-        !stderr.contains("unrecognized") && !stderr.contains("unknown") && !stderr.contains("unexpected"),
+        !stderr.contains("unrecognized")
+            && !stderr.contains("unknown")
+            && !stderr.contains("unexpected"),
         "Combined flags should be accepted: {}",
         stderr
     );

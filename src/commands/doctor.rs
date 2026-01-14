@@ -23,17 +23,16 @@ pub fn run() -> Result<()> {
     if repo.is_initialized() {
         println!("{} {}", "✓".green(), "Repo initialized".dimmed());
     } else {
-        println!("{} {}", "✗".red(), "Repo not initialized (run `stax` once)".yellow());
+        println!(
+            "{} {}",
+            "✗".red(),
+            "Repo not initialized (run `stax` once)".yellow()
+        );
         issues += 1;
     }
 
     match repo.trunk_branch() {
-        Ok(trunk) => println!(
-            "{} {} {}",
-            "✓".green(),
-            "Trunk:".dimmed(),
-            trunk.cyan()
-        ),
+        Ok(trunk) => println!("{} {} {}", "✓".green(), "Trunk:".dimmed(), trunk.cyan()),
         Err(err) => {
             println!("{} {} {}", "✗".red(), "Trunk not set:".yellow(), err);
             issues += 1;
@@ -49,12 +48,7 @@ pub fn run() -> Result<()> {
             format!("{} ({})", remote_name, url).cyan()
         ),
         Err(err) => {
-            println!(
-                "{} {} {}",
-                "✗".red(),
-                "Remote missing:".yellow(),
-                err
-            );
+            println!("{} {} {}", "✗".red(), "Remote missing:".yellow(), err);
             issues += 1;
         }
     }
@@ -110,7 +104,16 @@ pub fn run() -> Result<()> {
             println!(
                 "{} {}",
                 "⚠".yellow(),
-                format!("{} {} need restack", needs_restack.len(), if needs_restack.len() == 1 { "branch" } else { "branches" }).yellow()
+                format!(
+                    "{} {} need restack",
+                    needs_restack.len(),
+                    if needs_restack.len() == 1 {
+                        "branch"
+                    } else {
+                        "branches"
+                    }
+                )
+                .yellow()
             );
         }
     }
@@ -119,10 +122,7 @@ pub fn run() -> Result<()> {
     if issues == 0 {
         println!("{}", "✓ Doctor check complete (no critical issues)".green());
     } else {
-        println!(
-            "{}",
-            format!("✗ Doctor found {} issue(s)", issues).yellow()
-        );
+        println!("{}", format!("✗ Doctor found {} issue(s)", issues).yellow());
     }
 
     Ok(())

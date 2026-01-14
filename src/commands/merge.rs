@@ -62,7 +62,11 @@ pub fn run(
         if !quiet {
             println!(
                 "{}",
-                format!("Branch '{}' is not tracked. Run 'stax branch track' first.", current).yellow()
+                format!(
+                    "Branch '{}' is not tracked. Run 'stax branch track' first.",
+                    current
+                )
+                .yellow()
             );
         }
         return Ok(());
@@ -94,7 +98,9 @@ pub fn run(
     if let Some(ref client) = client {
         for branch_info in &mut scope.to_merge {
             if branch_info.pr_number.is_none() {
-                if let Ok(Some(pr_info)) = rt.block_on(async { client.find_pr(&branch_info.branch).await }) {
+                if let Ok(Some(pr_info)) =
+                    rt.block_on(async { client.find_pr(&branch_info.branch).await })
+                {
                     branch_info.pr_number = Some(pr_info.number);
                 }
             }
@@ -118,7 +124,9 @@ pub fn run(
 
     // Get remote info and client (will fail with clear error if not available)
     let remote_info = remote_info?;
-    let client = client.ok_or_else(|| anyhow::anyhow!("Failed to connect to GitHub. Check your token and remote configuration."))?;
+    let client = client.ok_or_else(|| {
+        anyhow::anyhow!("Failed to connect to GitHub. Check your token and remote configuration.")
+    })?;
 
     if !quiet {
         print!("Fetching PR status... ");
@@ -343,7 +351,11 @@ pub fn run(
 
             // Update PR base to trunk
             if !quiet {
-                print!("      {} Updating PR base to {}... ", "↻".cyan(), scope.trunk);
+                print!(
+                    "      {} Updating PR base to {}... ",
+                    "↻".cyan(),
+                    scope.trunk
+                );
                 std::io::stdout().flush().ok();
             }
 
@@ -425,7 +437,8 @@ pub fn run(
                 if output.status.success() {
                     // Update PR base
                     if let Some(pr_num) = remaining.pr_number {
-                        let _ = rt.block_on(async { client.update_pr_base(pr_num, &scope.trunk).await });
+                        let _ = rt
+                            .block_on(async { client.update_pr_base(pr_num, &scope.trunk).await });
                     }
 
                     // Update metadata
@@ -511,14 +524,16 @@ pub fn run(
         println!();
         println!("Progress:");
         for (merged_branch, merged_pr) in &merged_prs {
-            println!("  {} #{} {} → merged", "✓".green(), merged_pr, merged_branch);
+            println!(
+                "  {} #{} {} → merged",
+                "✓".green(),
+                merged_pr,
+                merged_branch
+            );
         }
         println!("  {} #{} {} → {}", "✗".red(), pr, branch, reason);
         println!();
-        println!(
-            "{}",
-            "Already merged PRs remain merged.".dimmed()
-        );
+        println!("{}", "Already merged PRs remain merged.".dimmed());
         println!(
             "{}",
             "Fix the issue and run 'stax merge' to continue.".dimmed()
@@ -669,10 +684,18 @@ fn print_merge_preview(scope: &MergeScope, method: &MergeMethod) {
         .map(|n| format!(" (PR #{})", n))
         .unwrap_or_default();
 
-    println!("You are on: {}{}", current.cyan().bold(), current_pr.dimmed());
+    println!(
+        "You are on: {}{}",
+        current.cyan().bold(),
+        current_pr.dimmed()
+    );
     println!();
 
-    let pr_word = if scope.to_merge.len() == 1 { "PR" } else { "PRs" };
+    let pr_word = if scope.to_merge.len() == 1 {
+        "PR"
+    } else {
+        "PRs"
+    };
     println!(
         "This will merge {} {} from bottom → current:",
         scope.to_merge.len().to_string().bold(),
@@ -729,7 +752,12 @@ fn print_branch_box(branches: &[MergeBranchInfo], included: bool) {
                 let review_check = if pr_status.changes_requested {
                     format!("  {} Changes requested", "✗".red())
                 } else if pr_status.approvals > 0 {
-                    format!("  {} Approved ({} review{})", "✓".green(), pr_status.approvals, if pr_status.approvals == 1 { "" } else { "s" })
+                    format!(
+                        "  {} Approved ({} review{})",
+                        "✓".green(),
+                        pr_status.approvals,
+                        if pr_status.approvals == 1 { "" } else { "s" }
+                    )
                 } else {
                     format!("  {} Awaiting review...", "○".yellow())
                 };
@@ -806,8 +834,8 @@ fn char_width(c: char) -> usize {
         // ASCII is width 1
         '\x20'..='\x7e' => 1,
         // Box drawing characters are width 1
-        '─' | '│' | '┌' | '┐' | '└' | '┘' | '├' | '┤' | '┬' | '┴' | '┼' 
-        | '╭' | '╮' | '╯' | '╰' | '║' | '═' => 1,
+        '─' | '│' | '┌' | '┐' | '└' | '┘' | '├' | '┤' | '┬' | '┴' | '┼' | '╭' | '╮' | '╯' | '╰'
+        | '║' | '═' => 1,
         // Arrows - typically width 1 in most terminals
         '←' | '→' | '↑' | '↓' => 1,
         // Checkmarks and X marks - width 1 in most monospace fonts
@@ -1033,15 +1061,13 @@ mod tests {
                     position: 2,
                 },
             ],
-            remaining: vec![
-                MergeBranchInfo {
-                    branch: "feature-c".to_string(),
-                    pr_number: Some(3),
-                    pr_status: None,
-                    is_current: false,
-                    position: 3,
-                },
-            ],
+            remaining: vec![MergeBranchInfo {
+                branch: "feature-c".to_string(),
+                pr_number: Some(3),
+                pr_status: None,
+                is_current: false,
+                position: 3,
+            }],
             trunk: "main".to_string(),
         };
 
@@ -1058,4 +1084,3 @@ mod tests {
         let _timeout = WaitResult::Timeout;
     }
 }
-

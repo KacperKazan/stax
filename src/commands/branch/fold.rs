@@ -77,7 +77,11 @@ pub fn run(keep_branch: bool, skip_confirm: bool) -> Result<()> {
     println!();
 
     // Confirm (unless --yes flag)
-    let action = if keep_branch { "fold" } else { "fold and delete" };
+    let action = if keep_branch {
+        "fold"
+    } else {
+        "fold and delete"
+    };
     if !skip_confirm {
         let confirm = Confirm::with_theme(&ColorfulTheme::default())
             .with_prompt(format!("{}  '{}' into '{}'?", action, current, parent))
@@ -194,12 +198,7 @@ pub fn run(keep_branch: bool, skip_confirm: bool) -> Result<()> {
     }
 
     println!();
-    println!(
-        "{} Folded '{}' into '{}'",
-        "✓".green(),
-        current,
-        parent
-    );
+    println!("{} Folded '{}' into '{}'", "✓".green(), current, parent);
 
     Ok(())
 }

@@ -72,10 +72,7 @@ pub fn down(count: Option<usize>) -> Result<()> {
 
     for _ in 0..steps {
         // Get parent of current branch
-        let parent = stack
-            .branches
-            .get(&current)
-            .and_then(|b| b.parent.clone());
+        let parent = stack.branches.get(&current).and_then(|b| b.parent.clone());
 
         match parent {
             Some(p) => {
@@ -139,10 +136,7 @@ pub fn top() -> Result<()> {
 
     let original = repo.current_branch()?;
     if current == original {
-        println!(
-            "{}",
-            "Already at the top of the stack.".dimmed()
-        );
+        println!("{}", "Already at the top of the stack.".dimmed());
         return Ok(());
     }
 
@@ -164,17 +158,12 @@ pub fn bottom() -> Result<()> {
     let current_stack = stack.current_stack(&current);
 
     // Find the first branch that's not trunk
-    let bottom_branch = current_stack
-        .iter()
-        .find(|b| *b != &stack.trunk);
+    let bottom_branch = current_stack.iter().find(|b| *b != &stack.trunk);
 
     match bottom_branch {
         Some(target) => {
             if target == &current {
-                println!(
-                    "{}",
-                    "Already at the bottom of the stack.".dimmed()
-                );
+                println!("{}", "Already at the bottom of the stack.".dimmed());
                 return Ok(());
             }
             // Save current branch as previous before switching

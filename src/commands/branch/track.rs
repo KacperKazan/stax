@@ -91,7 +91,8 @@ pub fn run(parent: Option<String>, all_prs: bool) -> Result<()> {
     let meta = BranchMetadata::new(&parent_branch, &parent_rev);
     meta.write(repo.inner(), &current)?;
 
-    if let Ok(remote_branches) = remote::get_remote_branches(repo.workdir()?, config.remote_name()) {
+    if let Ok(remote_branches) = remote::get_remote_branches(repo.workdir()?, config.remote_name())
+    {
         if !remote_branches.contains(&parent_branch) {
             println!(
                 "{}",
@@ -128,7 +129,11 @@ fn run_track_all_prs() -> Result<()> {
     // Create GitHub client
     let rt = tokio::runtime::Runtime::new().context("Failed to create async runtime")?;
     let client = rt.block_on(async {
-        GitHubClient::new(remote_info.owner(), &remote_info.repo, remote_info.api_base_url.clone())
+        GitHubClient::new(
+            remote_info.owner(),
+            &remote_info.repo,
+            remote_info.api_base_url.clone(),
+        )
     })?;
 
     // Get current user
@@ -142,12 +147,16 @@ fn run_track_all_prs() -> Result<()> {
         .context("Failed to fetch open PRs")?;
 
     if open_prs.is_empty() {
-        println!("No open PRs found for user '{}' in {}/{}.",
+        println!(
+            "No open PRs found for user '{}' in {}/{}.",
             username.cyan(),
             remote_info.owner().dimmed(),
             remote_info.repo.dimmed()
         );
-        println!("{}", "Tip: This only finds PRs in the current repository.".dimmed());
+        println!(
+            "{}",
+            "Tip: This only finds PRs in the current repository.".dimmed()
+        );
         return Ok(());
     }
 
@@ -251,11 +260,7 @@ fn run_track_all_prs() -> Result<()> {
 }
 
 /// Fetch a single branch from remote and create local tracking branch
-fn fetch_branch_from_remote(
-    workdir: &std::path::Path,
-    remote: &str,
-    branch: &str,
-) -> Result<()> {
+fn fetch_branch_from_remote(workdir: &std::path::Path, remote: &str, branch: &str) -> Result<()> {
     let status = Command::new("git")
         .args(["fetch", remote, &format!("{}:{}", branch, branch)])
         .current_dir(workdir)

@@ -85,7 +85,12 @@ pub fn run(
         if !stack.branches.contains_key(filter) {
             anyhow::bail!("Branch '{}' is not tracked in the stack.", filter);
         }
-        Some(stack.current_stack(filter).into_iter().collect::<HashSet<_>>())
+        Some(
+            stack
+                .current_stack(filter)
+                .into_iter()
+                .collect::<HashSet<_>>(),
+        )
     } else {
         None // Show all branches by default
     };
@@ -158,9 +163,13 @@ pub fn run(
             .and_then(|p| repo.commits_ahead_behind(p, name).ok())
             .unwrap_or((0, 0));
 
-        let pr_state = info
-            .and_then(|b| b.pr_state.clone())
-            .and_then(|s| if s.trim().is_empty() { None } else { Some(s) });
+        let pr_state = info.and_then(|b| b.pr_state.clone()).and_then(|s| {
+            if s.trim().is_empty() {
+                None
+            } else {
+                Some(s)
+            }
+        });
 
         let pr_number = info.and_then(|b| b.pr_number);
         let pr_url = pr_number.and_then(|n| remote_info.as_ref().map(|r| r.pr_url(n)));
@@ -214,10 +223,7 @@ pub fn run(
         for entry in &branch_logs {
             let parent = entry.parent.clone().unwrap_or_default();
             let pr_state = entry.pr_state.clone().unwrap_or_default();
-            let pr_number = entry
-                .pr_number
-                .map(|n| n.to_string())
-                .unwrap_or_default();
+            let pr_number = entry.pr_number.map(|n| n.to_string()).unwrap_or_default();
             let ci_state = entry.ci_state.clone().unwrap_or_default();
             let age = entry.age.clone().unwrap_or_default();
             let last_commit = entry
@@ -249,7 +255,11 @@ pub fn run(
         let color = DEPTH_COLORS[db.column % DEPTH_COLORS.len()];
 
         // Check if we need a corner connector
-        let prev_branch_col = if i > 0 { Some(display_branches[i - 1].column) } else { None };
+        let prev_branch_col = if i > 0 {
+            Some(display_branches[i - 1].column)
+        } else {
+            None
+        };
         let needs_corner = prev_branch_col.is_some_and(|pc| pc > db.column);
 
         // Build tree graphics
@@ -413,7 +423,10 @@ pub fn run(
     }
 
     if !has_tracked && !quiet {
-        println!("{}", "No tracked branches yet (showing trunk only).".dimmed());
+        println!(
+            "{}",
+            "No tracked branches yet (showing trunk only).".dimmed()
+        );
         println!(
             "Use {} to start tracking branches.",
             "stax branch track".cyan()
@@ -427,7 +440,16 @@ pub fn run(
         println!();
         println!(
             "{}",
-            format!("⟳ {} {} need restacking", needs_restack.len(), if needs_restack.len() == 1 { "branch" } else { "branches" }).bright_yellow()
+            format!(
+                "⟳ {} {} need restacking",
+                needs_restack.len(),
+                if needs_restack.len() == 1 {
+                    "branch"
+                } else {
+                    "branches"
+                }
+            )
+            .bright_yellow()
         );
         println!("Run {} to rebase.", "stax rs --restack".bright_cyan());
     }
@@ -483,20 +505,14 @@ fn collect_display_branches_with_nesting(
                 .map(|c| (c, count_chain_size(stack, c, allowed)))
                 .collect();
 
-            children_with_sizes.sort_by(|a, b| {
-                b.1.cmp(&a.1).then_with(|| a.0.cmp(b.0))
-            });
+            children_with_sizes.sort_by(|a, b| b.1.cmp(&a.1).then_with(|| a.0.cmp(b.0)));
 
             let main_child = children_with_sizes[0].0;
-            let side_children: Vec<&String> = children_with_sizes[1..].iter().map(|(c, _)| *c).collect();
+            let side_children: Vec<&String> =
+                children_with_sizes[1..].iter().map(|(c, _)| *c).collect();
 
             collect_display_branches_with_nesting(
-                stack,
-                main_child,
-                column,
-                result,
-                max_column,
-                allowed,
+                stack, main_child, column, result, max_column, allowed,
             );
 
             for side in &side_children {

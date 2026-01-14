@@ -94,7 +94,9 @@ pub fn render_stack_tree(f: &mut Frame, app: &App, area: Rect) {
 
             // Build the line with styling
             let branch_style = if branch.is_current {
-                Style::default().fg(Color::Green).add_modifier(Modifier::BOLD)
+                Style::default()
+                    .fg(Color::Green)
+                    .add_modifier(Modifier::BOLD)
             } else if branch.is_trunk {
                 Style::default().fg(Color::Blue)
             } else {
@@ -127,7 +129,12 @@ pub fn render_stack_tree(f: &mut Frame, app: &App, area: Rect) {
     };
 
     let (border_color, title_style) = if is_focused {
-        (Color::Cyan, Style::default().fg(Color::Cyan).add_modifier(Modifier::BOLD))
+        (
+            Color::Cyan,
+            Style::default()
+                .fg(Color::Cyan)
+                .add_modifier(Modifier::BOLD),
+        )
     } else {
         (Color::DarkGray, Style::default().fg(Color::DarkGray))
     };

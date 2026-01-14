@@ -85,43 +85,64 @@ mod tests {
     #[test]
     fn test_detect_homebrew_arm() {
         let path = "/opt/homebrew/bin/stax";
-        assert!(matches!(install_method_from_path(path), InstallMethod::Homebrew));
+        assert!(matches!(
+            install_method_from_path(path),
+            InstallMethod::Homebrew
+        ));
     }
 
     #[test]
     fn test_detect_homebrew_cellar_arm() {
         let path = "/opt/homebrew/Cellar/stax/0.5.0/bin/stax";
-        assert!(matches!(install_method_from_path(path), InstallMethod::Homebrew));
+        assert!(matches!(
+            install_method_from_path(path),
+            InstallMethod::Homebrew
+        ));
     }
 
     #[test]
     fn test_detect_homebrew_intel() {
         let path = "/usr/local/Cellar/stax/0.5.0/bin/stax";
-        assert!(matches!(install_method_from_path(path), InstallMethod::Homebrew));
+        assert!(matches!(
+            install_method_from_path(path),
+            InstallMethod::Homebrew
+        ));
     }
 
     #[test]
     fn test_detect_cargo() {
         let path = "/Users/cesar/.cargo/bin/stax";
-        assert!(matches!(install_method_from_path(path), InstallMethod::Cargo));
+        assert!(matches!(
+            install_method_from_path(path),
+            InstallMethod::Cargo
+        ));
     }
 
     #[test]
     fn test_detect_cargo_linux() {
         let path = "/home/user/.cargo/bin/stax";
-        assert!(matches!(install_method_from_path(path), InstallMethod::Cargo));
+        assert!(matches!(
+            install_method_from_path(path),
+            InstallMethod::Cargo
+        ));
     }
 
     #[test]
     fn test_detect_unknown_usr_local_bin() {
         let path = "/usr/local/bin/stax";
-        assert!(matches!(install_method_from_path(path), InstallMethod::Unknown));
+        assert!(matches!(
+            install_method_from_path(path),
+            InstallMethod::Unknown
+        ));
     }
 
     #[test]
     fn test_detect_unknown_custom_path() {
         let path = "/opt/mytools/stax";
-        assert!(matches!(install_method_from_path(path), InstallMethod::Unknown));
+        assert!(matches!(
+            install_method_from_path(path),
+            InstallMethod::Unknown
+        ));
     }
 
     #[test]
@@ -131,7 +152,10 @@ mod tests {
 
     #[test]
     fn test_upgrade_command_homebrew() {
-        assert_eq!(InstallMethod::Homebrew.upgrade_command(), "brew upgrade stax");
+        assert_eq!(
+            InstallMethod::Homebrew.upgrade_command(),
+            "brew upgrade stax"
+        );
     }
 
     #[test]

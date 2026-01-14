@@ -64,10 +64,14 @@ impl SplitApp {
         let current_branch = repo.current_branch()?;
 
         // Get the parent branch
-        let branch_info = stack.branches.get(&current_branch)
+        let branch_info = stack
+            .branches
+            .get(&current_branch)
             .context("Current branch is not tracked. Use `stax branch track` first.")?;
 
-        let parent_branch = branch_info.parent.clone()
+        let parent_branch = branch_info
+            .parent
+            .clone()
             .context("Current branch has no parent (is it trunk?)")?;
 
         // Get commits between parent and current
@@ -101,12 +105,14 @@ impl SplitApp {
         use git2::BranchType;
 
         // Get OIDs from branch references
-        let parent_ref = repo.inner()
+        let parent_ref = repo
+            .inner()
             .find_branch(parent, BranchType::Local)
             .with_context(|| format!("Branch '{}' not found", parent))?;
         let parent_oid = parent_ref.get().peel_to_commit()?.id();
 
-        let branch_ref = repo.inner()
+        let branch_ref = repo
+            .inner()
             .find_branch(branch, BranchType::Local)
             .with_context(|| format!("Branch '{}' not found", branch))?;
         let branch_oid = branch_ref.get().peel_to_commit()?.id();
@@ -153,7 +159,10 @@ impl SplitApp {
             return false;
         }
         // Can't split if there's already a split point here
-        !self.split_points.iter().any(|sp| sp.after_commit_index == self.selected_index)
+        !self
+            .split_points
+            .iter()
+            .any(|sp| sp.after_commit_index == self.selected_index)
     }
 
     /// Add a split point at the current position
@@ -170,7 +179,11 @@ impl SplitApp {
 
     /// Remove split point at current position if one exists
     pub fn remove_split_at_current(&mut self) {
-        if let Some(pos) = self.split_points.iter().position(|sp| sp.after_commit_index == self.selected_index) {
+        if let Some(pos) = self
+            .split_points
+            .iter()
+            .position(|sp| sp.after_commit_index == self.selected_index)
+        {
             self.split_points.remove(pos);
             self.status_message = Some("Split point removed".to_string());
         }
@@ -178,11 +191,19 @@ impl SplitApp {
 
     /// Move split point at current position up (earlier in commits)
     pub fn move_split_up(&mut self) {
-        if let Some(pos) = self.split_points.iter().position(|sp| sp.after_commit_index == self.selected_index) {
+        if let Some(pos) = self
+            .split_points
+            .iter()
+            .position(|sp| sp.after_commit_index == self.selected_index)
+        {
             if self.split_points[pos].after_commit_index > 0 {
                 // Check no conflict with adjacent split
                 let new_idx = self.split_points[pos].after_commit_index - 1;
-                if !self.split_points.iter().any(|sp| sp.after_commit_index == new_idx) {
+                if !self
+                    .split_points
+                    .iter()
+                    .any(|sp| sp.after_commit_index == new_idx)
+                {
                     self.split_points[pos].after_commit_index = new_idx;
                     self.selected_index = new_idx;
                     self.split_points.sort_by_key(|sp| sp.after_commit_index);
@@ -193,11 +214,19 @@ impl SplitApp {
 
     /// Move split point at current position down (later in commits)
     pub fn move_split_down(&mut self) {
-        if let Some(pos) = self.split_points.iter().position(|sp| sp.after_commit_index == self.selected_index) {
+        if let Some(pos) = self
+            .split_points
+            .iter()
+            .position(|sp| sp.after_commit_index == self.selected_index)
+        {
             let max_idx = self.commits.len().saturating_sub(2);
             if self.split_points[pos].after_commit_index < max_idx {
                 let new_idx = self.split_points[pos].after_commit_index + 1;
-                if !self.split_points.iter().any(|sp| sp.after_commit_index == new_idx) {
+                if !self
+                    .split_points
+                    .iter()
+                    .any(|sp| sp.after_commit_index == new_idx)
+                {
                     self.split_points[pos].after_commit_index = new_idx;
                     self.selected_index = new_idx;
                     self.split_points.sort_by_key(|sp| sp.after_commit_index);
@@ -252,7 +281,9 @@ impl SplitApp {
         let _ = config; // Reserved for future branch name formatting
 
         // Collect branch names to create
-        let new_branches: Vec<String> = self.split_points.iter()
+        let new_branches: Vec<String> = self
+            .split_points
+            .iter()
             .map(|sp| sp.branch_name.clone())
             .collect();
 
@@ -280,16 +311,19 @@ impl SplitApp {
             let commit_sha = &self.commits[sp.after_commit_index].sha;
 
             // Create branch at this commit
-            self.repo.create_branch_at_commit(&sp.branch_name, commit_sha)?;
+            self.repo
+                .create_branch_at_commit(&sp.branch_name, commit_sha)?;
 
             // Create metadata for the new branch
             let parent_rev = self.repo.branch_commit(&prev_parent)?;
             let meta = BranchMetadata::new(&prev_parent, &parent_rev);
             meta.write(self.repo.inner(), &sp.branch_name)?;
 
-            println!("Created branch '{}' with {} commits",
+            println!(
+                "Created branch '{}' with {} commits",
                 sp.branch_name,
-                sp.after_commit_index - prev_idx + 1);
+                sp.after_commit_index - prev_idx + 1
+            );
 
             prev_parent = sp.branch_name.clone();
             prev_idx = sp.after_commit_index + 1;
@@ -307,7 +341,10 @@ impl SplitApp {
                 meta.write(self.repo.inner(), &self.current_branch)?;
             }
 
-            println!("Updated '{}' parent to '{}'", self.current_branch, new_parent);
+            println!(
+                "Updated '{}' parent to '{}'",
+                self.current_branch, new_parent
+            );
         }
 
         tx.finish_ok()?;

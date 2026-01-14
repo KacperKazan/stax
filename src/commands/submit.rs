@@ -86,11 +86,7 @@ pub fn run(
 
     if !needs_restack.is_empty() && !quiet {
         for b in &needs_restack {
-            println!(
-                "  {} {} needs restack",
-                "!".yellow(),
-                b.cyan()
-            );
+            println!("  {} {} needs restack", "!".yellow(), b.cyan());
         }
     }
 
@@ -231,19 +227,43 @@ pub fn run(
     }
 
     // Show plan summary (exclude empty branches from PR counts)
-    let creates: Vec<_> = plans.iter().filter(|p| p.existing_pr.is_none() && !p.is_empty).collect();
-    let updates: Vec<_> = plans.iter().filter(|p| p.existing_pr.is_some() && p.needs_pr_update && !p.is_empty).collect();
-    let noops: Vec<_> = plans.iter().filter(|p| p.existing_pr.is_some() && !p.needs_pr_update && !p.needs_push && !p.is_empty).collect();
+    let creates: Vec<_> = plans
+        .iter()
+        .filter(|p| p.existing_pr.is_none() && !p.is_empty)
+        .collect();
+    let updates: Vec<_> = plans
+        .iter()
+        .filter(|p| p.existing_pr.is_some() && p.needs_pr_update && !p.is_empty)
+        .collect();
+    let noops: Vec<_> = plans
+        .iter()
+        .filter(|p| p.existing_pr.is_some() && !p.needs_pr_update && !p.needs_push && !p.is_empty)
+        .collect();
 
     if !quiet {
         if !creates.is_empty() {
-            println!("  {} {} {} to create", creates.len().to_string().cyan(), "▸".dimmed(), if creates.len() == 1 { "PR" } else { "PRs" });
+            println!(
+                "  {} {} {} to create",
+                creates.len().to_string().cyan(),
+                "▸".dimmed(),
+                if creates.len() == 1 { "PR" } else { "PRs" }
+            );
         }
         if !updates.is_empty() {
-            println!("  {} {} {} to update", updates.len().to_string().cyan(), "▸".dimmed(), if updates.len() == 1 { "PR" } else { "PRs" });
+            println!(
+                "  {} {} {} to update",
+                updates.len().to_string().cyan(),
+                "▸".dimmed(),
+                if updates.len() == 1 { "PR" } else { "PRs" }
+            );
         }
         if !noops.is_empty() {
-            println!("  {} {} {} already up to date", noops.len().to_string().dimmed(), "▸".dimmed(), if noops.len() == 1 { "PR" } else { "PRs" });
+            println!(
+                "  {} {} {} already up to date",
+                noops.len().to_string().dimmed(),
+                "▸".dimmed(),
+                if noops.len() == 1 { "PR" } else { "PRs" }
+            );
         }
     }
 
@@ -255,7 +275,10 @@ pub fn run(
         } else {
             discover_pr_templates(repo.workdir()?).unwrap_or_default()
         };
-        let new_prs: Vec<_> = plans.iter().filter(|p| p.existing_pr.is_none() && !p.is_empty).collect();
+        let new_prs: Vec<_> = plans
+            .iter()
+            .filter(|p| p.existing_pr.is_none() && !p.is_empty)
+            .collect();
         if !new_prs.is_empty() && !quiet {
             println!();
             println!("{}", "New PR details:".bold());
@@ -277,7 +300,11 @@ pub fn run(
                     .cloned();
 
                 if found.is_none() && !quiet {
-                    eprintln!("  {} Template '{}' not found, using no template", "!".yellow(), template_name);
+                    eprintln!(
+                        "  {} Template '{}' not found, using no template",
+                        "!".yellow(),
+                        template_name
+                    );
                 }
                 found
             } else if no_prompt {
@@ -318,9 +345,7 @@ pub fn run(
                 default_body
             } else if edit {
                 // --edit flag: always open editor
-                Editor::new()
-                    .edit(&default_body)?
-                    .unwrap_or(default_body)
+                Editor::new().edit(&default_body)?.unwrap_or(default_body)
             } else {
                 // Interactive prompt
                 let options = if default_body.trim().is_empty() {
@@ -337,9 +362,7 @@ pub fn run(
 
                 match options[choice] {
                     "Use default" => default_body,
-                    "Edit" => Editor::new()
-                        .edit(&default_body)?
-                        .unwrap_or(default_body),
+                    "Edit" => Editor::new().edit(&default_body)?.unwrap_or(default_body),
                     _ => String::new(),
                 }
             };
@@ -371,25 +394,36 @@ pub fn run(
     // Create transaction if we have branches to push
     let mut tx = if !branches_needing_push.is_empty() {
         let mut tx = Transaction::begin(OpKind::Submit, &repo, quiet)?;
-        
+
         // Plan local branches (for backup)
-        let branch_names: Vec<String> = branches_needing_push.iter().map(|p| p.branch.clone()).collect();
+        let branch_names: Vec<String> = branches_needing_push
+            .iter()
+            .map(|p| p.branch.clone())
+            .collect();
         tx.plan_branches(&repo, &branch_names)?;
-        
+
         // Plan remote refs (record current remote state before pushing)
         for plan in &branches_needing_push {
             tx.plan_remote_branch(&repo, &remote_info.name, &plan.branch)?;
         }
-        
+
         let summary = PlanSummary {
             branches_to_rebase: 0,
             branches_to_push: branches_needing_push.len(),
-            description: vec![format!("Submit {} {}", branches_needing_push.len(), if branches_needing_push.len() == 1 { "branch" } else { "branches" })],
+            description: vec![format!(
+                "Submit {} {}",
+                branches_needing_push.len(),
+                if branches_needing_push.len() == 1 {
+                    "branch"
+                } else {
+                    "branches"
+                }
+            )],
         };
         tx::print_plan(tx.kind(), &summary, quiet);
         tx.set_plan_summary(summary);
         tx.snapshot()?;
-        
+
         Some(tx)
     } else {
         None
@@ -406,10 +440,10 @@ pub fn run(
                 print!("  {}... ", plan.branch);
                 std::io::Write::flush(&mut std::io::stdout()).ok();
             }
-            
+
             // Get local OID before push (this is what we're pushing)
             let local_oid = repo.branch_commit(&plan.branch).ok();
-            
+
             match push_branch(repo.workdir()?, &remote_info.name, &plan.branch) {
                 Ok(()) => {
                     // Record after-OIDs
@@ -450,7 +484,9 @@ pub fn run(
     }
 
     // Check if anything needs to be done (exclude empty branches)
-    let any_pr_work = plans.iter().any(|p| !p.is_empty && (p.existing_pr.is_none() || p.needs_pr_update));
+    let any_pr_work = plans
+        .iter()
+        .any(|p| !p.is_empty && (p.existing_pr.is_none() || p.needs_pr_update));
 
     if !any_pr_work && branches_needing_push.is_empty() {
         if !quiet {
@@ -502,7 +538,11 @@ pub fn run(
                     ))?;
 
                 if !quiet {
-                    println!("{} {}", "created".green(), format!("#{}", pr.number).dimmed());
+                    println!(
+                        "{} {}",
+                        "created".green(),
+                        format!("#{}", pr.number).dimmed()
+                    );
                 }
 
                 // Update metadata with PR info
@@ -576,13 +616,11 @@ pub fn run(
                 print!("  Updating stack comment on #{}... ", pr_number);
                 std::io::Write::flush(&mut std::io::stdout()).ok();
             }
-            let stack_comment = generate_stack_comment(
-                &pr_infos,
-                *pr_number,
-                &remote_info,
-                &stack.trunk,
-            );
-            client.update_stack_comment(*pr_number, &stack_comment).await?;
+            let stack_comment =
+                generate_stack_comment(&pr_infos, *pr_number, &remote_info, &stack.trunk);
+            client
+                .update_stack_comment(*pr_number, &stack_comment)
+                .await?;
             if !quiet {
                 println!("{}", "done".green());
             }
@@ -596,11 +634,7 @@ pub fn run(
             if !pr_infos.is_empty() {
                 for pr_info in &pr_infos {
                     if let Some(num) = pr_info.pr_number {
-                        println!(
-                            "  {} {}",
-                            "✓".green(),
-                            remote_info.pr_url(num)
-                        );
+                        println!("  {} {}", "✓".green(), remote_info.pr_url(num));
                     }
                 }
             }
@@ -655,8 +689,8 @@ fn branch_needs_push(workdir: &Path, remote: &str, branch: &str) -> bool {
 
     match (local, remote_commit) {
         (Some(l), Some(r)) => l != r, // Need push if different
-        (Some(_), None) => true,       // Branch not on remote yet
-        _ => true,                     // Default to push if unsure
+        (Some(_), None) => true,      // Branch not on remote yet
+        _ => true,                    // Default to push if unsure
     }
 }
 

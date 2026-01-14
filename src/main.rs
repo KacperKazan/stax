@@ -679,7 +679,16 @@ fn main() -> Result<()> {
             quiet,
         } => {
             let merge_method = method.parse().unwrap_or_default();
-            commands::merge::run(all, dry_run, merge_method, no_delete, no_wait, timeout, yes, quiet)
+            commands::merge::run(
+                all,
+                dry_run,
+                merge_method,
+                no_delete,
+                no_wait,
+                timeout,
+                yes,
+                quiet,
+            )
         }
         Commands::Sync {
             restack,
@@ -735,9 +744,24 @@ fn main() -> Result<()> {
             commands::copy::run(target)
         }
         Commands::Standup { json, all, hours } => commands::standup::run(json, all, hours),
-        Commands::Rename { name, edit, push, literal } => commands::branch::rename::run(name, edit, push, literal),
-        Commands::Undo { op_id, yes, no_push, quiet } => commands::undo::run(op_id, yes, no_push, quiet),
-        Commands::Redo { op_id, yes, no_push, quiet } => commands::redo::run(op_id, yes, no_push, quiet),
+        Commands::Rename {
+            name,
+            edit,
+            push,
+            literal,
+        } => commands::branch::rename::run(name, edit, push, literal),
+        Commands::Undo {
+            op_id,
+            yes,
+            no_push,
+            quiet,
+        } => commands::undo::run(op_id, yes, no_push, quiet),
+        Commands::Redo {
+            op_id,
+            yes,
+            no_push,
+            quiet,
+        } => commands::redo::run(op_id, yes, no_push, quiet),
         Commands::Branch(cmd) => match cmd {
             BranchCommands::Create {
                 name,
@@ -752,11 +776,18 @@ fn main() -> Result<()> {
                 parent,
                 child,
             } => commands::checkout::run(branch, trunk, parent, child),
-            BranchCommands::Track { parent, all_prs } => commands::branch::track::run(parent, all_prs),
+            BranchCommands::Track { parent, all_prs } => {
+                commands::branch::track::run(parent, all_prs)
+            }
             BranchCommands::Reparent { branch, parent } => {
                 commands::branch::reparent::run(branch, parent)
             }
-            BranchCommands::Rename { name, edit, push, literal } => commands::branch::rename::run(name, edit, push, literal),
+            BranchCommands::Rename {
+                name,
+                edit,
+                push,
+                literal,
+            } => commands::branch::rename::run(name, edit, push, literal),
             BranchCommands::Delete { branch, force } => {
                 commands::branch::delete::run(branch, force)
             }
@@ -771,7 +802,9 @@ fn main() -> Result<()> {
             UpstackCommands::Restack => commands::upstack::restack::run(),
         },
         Commands::Downstack(cmd) => match cmd {
-            DownstackCommands::Get => commands::status::run(false, None, false, false, false, false),
+            DownstackCommands::Get => {
+                commands::status::run(false, None, false, false, false, false)
+            }
         },
         // Hidden shortcuts
         Commands::Bc {

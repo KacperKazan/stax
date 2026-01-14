@@ -283,7 +283,9 @@ impl GitRepo {
     pub fn create_branch_at_commit(&self, name: &str, commit_sha: &str) -> Result<()> {
         let oid = git2::Oid::from_str(commit_sha)
             .with_context(|| format!("Invalid commit SHA: {}", commit_sha))?;
-        let commit = self.repo.find_commit(oid)
+        let commit = self
+            .repo
+            .find_commit(oid)
             .with_context(|| format!("Commit '{}' not found", commit_sha))?;
         self.repo.branch(name, &commit, false)?;
         Ok(())
@@ -302,9 +304,7 @@ impl GitRepo {
             .get()
             .peel_to_commit()?;
 
-        let base = self
-            .repo
-            .merge_base(left_commit.id(), right_commit.id())?;
+        let base = self.repo.merge_base(left_commit.id(), right_commit.id())?;
         Ok(base.to_string())
     }
 
@@ -394,7 +394,11 @@ impl GitRepo {
 
     /// Get recent commits on a branch within the last N hours
     /// Returns (branch_name, commit_count, most_recent_age)
-    pub fn recent_branch_activity(&self, branch: &str, hours: i64) -> Result<Option<(usize, String)>> {
+    pub fn recent_branch_activity(
+        &self,
+        branch: &str,
+        hours: i64,
+    ) -> Result<Option<(usize, String)>> {
         let workdir = self.workdir()?;
         let since_arg = format!("--since={} hours ago", hours);
 
@@ -418,7 +422,10 @@ impl GitRepo {
         // Get the age of the most recent commit
         let age = self.branch_age(branch).ok();
 
-        Ok(Some((commit_count, age.unwrap_or_else(|| "recently".to_string()))))
+        Ok(Some((
+            commit_count,
+            age.unwrap_or_else(|| "recently".to_string()),
+        )))
     }
 
     /// Check if a branch is merged into trunk
@@ -445,14 +452,20 @@ impl GitRepo {
     /// Check if a branch has a remote tracking branch (origin/<branch>)
     pub fn has_remote(&self, branch: &str) -> bool {
         let remote_name = format!("origin/{}", branch);
-        self.repo.find_branch(&remote_name, BranchType::Remote).is_ok()
+        self.repo
+            .find_branch(&remote_name, BranchType::Remote)
+            .is_ok()
     }
 
     /// Get commits ahead/behind compared to remote tracking branch (origin/branch)
     /// Returns (unpushed, unpulled) or None if no remote tracking branch exists
     pub fn commits_vs_remote(&self, branch: &str) -> Option<(usize, usize)> {
         let remote_name = format!("origin/{}", branch);
-        if self.repo.find_branch(&remote_name, BranchType::Remote).is_ok() {
+        if self
+            .repo
+            .find_branch(&remote_name, BranchType::Remote)
+            .is_ok()
+        {
             self.commits_ahead_behind(&remote_name, branch).ok()
         } else {
             None
@@ -534,7 +547,14 @@ impl GitRepo {
         // Use git merge-tree to check for conflicts
         // git merge-tree --write-tree <base> <onto> <branch>
         let output = Command::new("git")
-            .args(["merge-tree", "--write-tree", "--no-messages", &merge_base, onto, branch])
+            .args([
+                "merge-tree",
+                "--write-tree",
+                "--no-messages",
+                &merge_base,
+                onto,
+                branch,
+            ])
             .current_dir(self.workdir()?)
             .output()
             .context("Failed to run git merge-tree")?;
@@ -544,10 +564,10 @@ impl GitRepo {
         if !output.status.success() {
             let stderr = String::from_utf8_lossy(&output.stderr);
             let stdout = String::from_utf8_lossy(&output.stdout);
-            
+
             // Parse conflict information from output
             let mut conflict_files = Vec::new();
-            
+
             // The output format typically shows conflicting files
             for line in stdout.lines().chain(stderr.lines()) {
                 // Look for lines indicating conflicts (file paths in merge conflicts)
@@ -590,16 +610,21 @@ impl GitRepo {
 
     /// Check for overlapping files between two branches that could cause conflicts
     #[allow(dead_code)] // Reserved for future conflict detection improvements
-    pub fn check_overlapping_files(&self, branch1: &str, branch2: &str, common_parent: &str) -> Result<Vec<String>> {
+    pub fn check_overlapping_files(
+        &self,
+        branch1: &str,
+        branch2: &str,
+        common_parent: &str,
+    ) -> Result<Vec<String>> {
         let files1 = self.files_modified(branch1, common_parent)?;
         let files2 = self.files_modified(branch2, common_parent)?;
-        
+
         let files1_set: std::collections::HashSet<_> = files1.into_iter().collect();
         let overlapping: Vec<String> = files2
             .into_iter()
             .filter(|f| files1_set.contains(f))
             .collect();
-        
+
         Ok(overlapping)
     }
 
@@ -608,7 +633,7 @@ impl GitRepo {
         if !self.rebase_in_progress()? {
             return Ok(());
         }
-        
+
         let status = Command::new("git")
             .args(["rebase", "--abort"])
             .current_dir(self.workdir()?)

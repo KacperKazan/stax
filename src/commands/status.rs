@@ -84,10 +84,20 @@ pub fn run(
         if !stack.branches.contains_key(filter) {
             anyhow::bail!("Branch '{}' is not tracked in the stack.", filter);
         }
-        Some(stack.current_stack(filter).into_iter().collect::<HashSet<_>>())
+        Some(
+            stack
+                .current_stack(filter)
+                .into_iter()
+                .collect::<HashSet<_>>(),
+        )
     } else {
         // Default: show only current stack
-        Some(stack.current_stack(&current).into_iter().collect::<HashSet<_>>())
+        Some(
+            stack
+                .current_stack(&current)
+                .into_iter()
+                .collect::<HashSet<_>>(),
+        )
     };
 
     // Get trunk children and build display list with proper tree structure
@@ -111,7 +121,7 @@ pub fn run(
         collect_display_branches_with_nesting(
             &stack,
             root,
-            i,      // column
+            i, // column
             &mut display_branches,
             &mut max_column,
             allowed_branches.as_ref(),
@@ -153,7 +163,8 @@ pub fn run(
         // For other branches, compare against parent (using libgit2, no subprocess)
         let (ahead, behind) = if is_trunk {
             let remote_ref = format!("{}/{}", config.remote_name(), name);
-            repo.commits_ahead_behind(&remote_ref, name).unwrap_or((0, 0))
+            repo.commits_ahead_behind(&remote_ref, name)
+                .unwrap_or((0, 0))
         } else {
             parent
                 .as_deref()
@@ -170,9 +181,13 @@ pub fn run(
             (0, 0)
         };
 
-        let pr_state = info
-            .and_then(|b| b.pr_state.clone())
-            .and_then(|s| if s.trim().is_empty() { None } else { Some(s) });
+        let pr_state = info.and_then(|b| b.pr_state.clone()).and_then(|s| {
+            if s.trim().is_empty() {
+                None
+            } else {
+                Some(s)
+            }
+        });
 
         let pr_number = info.and_then(|b| b.pr_number);
         let pr_url = pr_number.and_then(|n| remote_info.as_ref().map(|r| r.pr_url(n)));
@@ -214,10 +229,7 @@ pub fn run(
         for entry in &branch_statuses {
             let parent = entry.parent.clone().unwrap_or_default();
             let pr_state = entry.pr_state.clone().unwrap_or_default();
-            let pr_number = entry
-                .pr_number
-                .map(|n| n.to_string())
-                .unwrap_or_default();
+            let pr_number = entry.pr_number.map(|n| n.to_string()).unwrap_or_default();
             let ci_state = entry.ci_state.clone().unwrap_or_default();
             println!(
                 "{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}",
@@ -240,11 +252,16 @@ pub fn run(
         let is_current = branch == &current;
         let entry = branch_status_map.get(branch);
         // Show cloud if branch exists on remote OR has a PR (PR implies it was pushed)
-        let has_remote = remote_branches.contains(branch) || entry.and_then(|e| e.pr_number).is_some();
+        let has_remote =
+            remote_branches.contains(branch) || entry.and_then(|e| e.pr_number).is_some();
 
         // Check if we need a corner connector - this happens when the PREVIOUS branch was at a higher column
         // The corner shows that a side branch joins back to this level
-        let prev_branch_col = if i > 0 { Some(display_branches[i - 1].column) } else { None };
+        let prev_branch_col = if i > 0 {
+            Some(display_branches[i - 1].column)
+        } else {
+            None
+        };
         let needs_corner = prev_branch_col.is_some_and(|pc| pc > db.column);
 
         // Build tree graphics - pad to consistent width based on max_column
@@ -349,7 +366,11 @@ pub fn run(
     // Render trunk with corner connector (fp-style: ○─┘ for 1 col, ○─┴─┘ for 2, etc.)
     // Only connect columns used by direct trunk children, not nested columns
     let is_trunk_current = stack.trunk == current;
-    let trunk_child_max_col = if sorted_trunk_children.is_empty() { 0 } else { sorted_trunk_children.len() - 1 };
+    let trunk_child_max_col = if sorted_trunk_children.is_empty() {
+        0
+    } else {
+        sorted_trunk_children.len() - 1
+    };
 
     let mut trunk_tree = String::new();
     let mut trunk_visual_width = 0;
@@ -380,7 +401,7 @@ pub fn run(
 
     let mut trunk_info = String::new();
     trunk_info.push(' '); // Space after tree (same as branches)
-    // Show cloud icon or space for alignment
+                          // Show cloud icon or space for alignment
     if remote_branches.contains(&stack.trunk) {
         trunk_info.push_str(&format!("{} ", "☁".bright_blue()));
     } else {
@@ -408,7 +429,10 @@ pub fn run(
     println!("{}{}", trunk_tree, trunk_info);
 
     if !has_tracked && !quiet {
-        println!("{}", "No tracked branches yet (showing trunk only).".dimmed());
+        println!(
+            "{}",
+            "No tracked branches yet (showing trunk only).".dimmed()
+        );
         println!(
             "Use {} to start tracking branches.",
             "stax branch track".cyan()
@@ -422,7 +446,16 @@ pub fn run(
         println!();
         println!(
             "{}",
-            format!("⟳ {} {} need restacking", needs_restack.len(), if needs_restack.len() == 1 { "branch" } else { "branches" }).bright_yellow()
+            format!(
+                "⟳ {} {} need restacking",
+                needs_restack.len(),
+                if needs_restack.len() == 1 {
+                    "branch"
+                } else {
+                    "branches"
+                }
+            )
+            .bright_yellow()
         );
         println!("Run {} to rebase.", "stax rs --restack".bright_cyan());
     }
@@ -450,12 +483,24 @@ pub fn run(
             if needs_restack.is_empty() {
                 println!(); // Add newline if we didn't already print restack hint
             }
-            let mut stats = vec![format!("{} {}", total_branches, if total_branches == 1 { "branch" } else { "branches" })];
+            let mut stats = vec![format!(
+                "{} {}",
+                total_branches,
+                if total_branches == 1 {
+                    "branch"
+                } else {
+                    "branches"
+                }
+            )];
             if branches_with_remote > 0 {
                 stats.push(format!("{} pushed", branches_with_remote));
             }
             if open_prs > 0 {
-                stats.push(format!("{} open {}", open_prs, if open_prs == 1 { "PR" } else { "PRs" }));
+                stats.push(format!(
+                    "{} open {}",
+                    open_prs,
+                    if open_prs == 1 { "PR" } else { "PRs" }
+                ));
             }
             println!("{}", stats.join(" · ").dimmed());
         }
@@ -504,14 +549,7 @@ fn collect_recursive(
 
             // Each child gets column + index: first child at same column, second at +1, etc.
             for (i, child) in children.iter().enumerate() {
-                collect_recursive(
-                    stack,
-                    child,
-                    column + i,
-                    result,
-                    max_column,
-                    allowed,
-                );
+                collect_recursive(stack, child, column + i, result, max_column, allowed);
             }
         }
     }

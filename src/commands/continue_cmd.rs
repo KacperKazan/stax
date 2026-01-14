@@ -31,7 +31,10 @@ pub fn run() -> Result<()> {
             let config = Config::load().unwrap_or_default();
             if config.ui.tips {
                 println!();
-                println!("You may want to run {} to continue restacking.", "stax rs".cyan());
+                println!(
+                    "You may want to run {} to continue restacking.",
+                    "stax rs".cyan()
+                );
             }
         }
         RebaseResult::Conflict => {
@@ -39,7 +42,10 @@ pub fn run() -> Result<()> {
             let config = Config::load().unwrap_or_default();
             if config.ui.tips {
                 println!();
-                println!("Resolve the conflicts and run {} again.", "stax continue".cyan());
+                println!(
+                    "Resolve the conflicts and run {} again.",
+                    "stax continue".cyan()
+                );
             }
         }
     }

@@ -302,18 +302,9 @@ fn test_downstack_get_output_format() {
 
     // Should have some kind of tree structure indicators
     // or at least show branches in order
-    assert!(
-        stdout.contains("main"),
-        "Should show trunk in output"
-    );
-    assert!(
-        stdout.contains("feature-1"),
-        "Should show feature-1"
-    );
-    assert!(
-        stdout.contains("feature-2"),
-        "Should show feature-2"
-    );
+    assert!(stdout.contains("main"), "Should show trunk in output");
+    assert!(stdout.contains("feature-1"), "Should show feature-1");
+    assert!(stdout.contains("feature-2"), "Should show feature-2");
 }
 
 #[test]
@@ -338,4 +329,3 @@ fn test_downstack_get_shows_current_indicator() {
         "Should show current branch feature-1"
     );
 }
-

@@ -312,4 +312,3 @@ fn test_continue_multiple_times_no_rebase() {
         );
     }
 }
-

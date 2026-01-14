@@ -83,9 +83,7 @@ fn test_fold_untracked_branch_fails() {
 
     // Should indicate branch is not tracked
     assert!(
-        combined.contains("not tracked")
-            || combined.contains("track")
-            || !output.status.success(),
+        combined.contains("not tracked") || combined.contains("track") || !output.status.success(),
         "Expected message about tracking or failure, got: {}",
         combined
     );
@@ -111,9 +109,7 @@ fn test_fold_on_trunk_not_allowed() {
 
     // Should indicate can't fold on trunk (not tracked or similar)
     assert!(
-        combined.contains("trunk")
-            || combined.contains("not tracked")
-            || !output.status.success(),
+        combined.contains("trunk") || combined.contains("not tracked") || !output.status.success(),
         "Expected failure on trunk, got: {}",
         combined
     );
@@ -177,7 +173,10 @@ fn test_fold_help() {
     output.assert_success();
 
     let stdout = TestRepo::stdout(&output);
-    assert!(stdout.contains("--keep") || stdout.contains("-k"), "Expected --keep flag in help");
+    assert!(
+        stdout.contains("--keep") || stdout.contains("-k"),
+        "Expected --keep flag in help"
+    );
     assert!(
         stdout.contains("fold") || stdout.contains("Fold"),
         "Expected 'fold' in help"
@@ -300,4 +299,3 @@ fn test_fold_scenario_parent_is_not_trunk() {
 
     // This means fold would work (parent is not trunk)
 }
-

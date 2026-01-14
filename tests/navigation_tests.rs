@@ -356,10 +356,7 @@ fn test_down_already_at_trunk() {
     output.assert_success();
 
     let stdout = TestRepo::stdout(&output);
-    assert!(
-        repo.current_branch() == "main",
-        "Should still be on main"
-    );
+    assert!(repo.current_branch() == "main", "Should still be on main");
     assert!(
         stdout.contains("bottom") || stdout.contains("trunk") || stdout.contains("Already"),
         "Expected message about being at bottom, got: {}",
@@ -478,4 +475,3 @@ fn test_bu_and_bd_shortcuts_equivalent() {
     output.assert_success();
     assert!(repo.current_branch_contains("feature-1"));
 }
-

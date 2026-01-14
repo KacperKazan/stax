@@ -23,7 +23,12 @@ pub fn render_diff(f: &mut Frame, app: &App, area: Rect) {
     };
 
     let (border_color, title_style) = if is_focused {
-        (Color::Cyan, Style::default().fg(Color::Cyan).add_modifier(Modifier::BOLD))
+        (
+            Color::Cyan,
+            Style::default()
+                .fg(Color::Cyan)
+                .add_modifier(Modifier::BOLD),
+        )
     } else {
         (Color::DarkGray, Style::default().fg(Color::DarkGray))
     };
@@ -54,7 +59,13 @@ pub fn render_diff(f: &mut Frame, app: &App, area: Rect) {
         all_content.push(Line::from(""));
 
         // Add file stats with +/- bars
-        let max_file_len = app.diff_stat.iter().map(|s| s.file.len()).max().unwrap_or(20).min(40);
+        let max_file_len = app
+            .diff_stat
+            .iter()
+            .map(|s| s.file.len())
+            .max()
+            .unwrap_or(20)
+            .min(40);
 
         for stat in &app.diff_stat {
             let file = if stat.file.len() > max_file_len {
@@ -83,14 +94,8 @@ pub fn render_diff(f: &mut Frame, app: &App, area: Rect) {
                     Style::default().fg(Color::Yellow),
                 ),
                 Span::raw(" "),
-                Span::styled(
-                    "+".repeat(add_bars),
-                    Style::default().fg(Color::Green),
-                ),
-                Span::styled(
-                    "-".repeat(del_bars),
-                    Style::default().fg(Color::Red),
-                ),
+                Span::styled("+".repeat(add_bars), Style::default().fg(Color::Green)),
+                Span::styled("-".repeat(del_bars), Style::default().fg(Color::Red)),
             ]));
         }
 

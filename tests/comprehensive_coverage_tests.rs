@@ -232,7 +232,9 @@ fn test_doctor_output_format() {
     output.assert_success();
     // Should contain check symbols
     let stdout = String::from_utf8_lossy(&output.stdout);
-    assert!(stdout.contains("✓") || stdout.contains("✗") || stdout.contains("!") || stdout.len() > 0);
+    assert!(
+        stdout.contains("✓") || stdout.contains("✗") || stdout.contains("!") || stdout.len() > 0
+    );
 }
 
 // =============================================================================

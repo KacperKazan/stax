@@ -604,4 +604,3 @@ mod tests {
         output.assert_failure();
     }
 }
-

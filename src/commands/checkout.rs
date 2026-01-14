@@ -23,12 +23,7 @@ struct DisplayBranch {
     stack_index: usize,
 }
 
-pub fn run(
-    branch: Option<String>,
-    trunk: bool,
-    parent: bool,
-    child: Option<usize>,
-) -> Result<()> {
+pub fn run(branch: Option<String>, trunk: bool, parent: bool, child: Option<usize>) -> Result<()> {
     let repo = GitRepo::open()?;
     let current = repo.current_branch()?;
 
@@ -78,9 +73,8 @@ pub fn run(
 
                 // Get trunk children (each starts a chain)
                 let trunk_info = stack.branches.get(&stack.trunk);
-                let trunk_children: Vec<String> = trunk_info
-                    .map(|b| b.children.clone())
-                    .unwrap_or_default();
+                let trunk_children: Vec<String> =
+                    trunk_info.map(|b| b.children.clone()).unwrap_or_default();
 
                 if trunk_children.is_empty() {
                     println!("No branches found.");
@@ -100,8 +94,8 @@ pub fn run(
                     collect_display_branches_with_nesting(
                         &stack,
                         root,
-                        i,  // column
-                        i,  // stack_index
+                        i, // column
+                        i, // stack_index
                         &mut display_branches,
                         &mut max_column,
                     );
@@ -123,8 +117,11 @@ pub fn run(
                     let color = DEPTH_COLORS[db.stack_index % DEPTH_COLORS.len()];
 
                     // Check if we need a corner connector
-                    let prev_branch_col =
-                        if i > 0 { Some(display_branches[i - 1].column) } else { None };
+                    let prev_branch_col = if i > 0 {
+                        Some(display_branches[i - 1].column)
+                    } else {
+                        None
+                    };
                     let needs_corner = prev_branch_col.is_some_and(|pc| pc > db.column);
 
                     // Build tree graphics with stack colors
@@ -161,8 +158,7 @@ pub fn run(
 
                     if let Some(info) = stack.branches.get(&db.name) {
                         if let Some(parent) = info.parent.as_deref() {
-                            if let Ok((ahead, behind)) =
-                                repo.commits_ahead_behind(parent, &db.name)
+                            if let Ok((ahead, behind)) = repo.commits_ahead_behind(parent, &db.name)
                             {
                                 if ahead > 0 {
                                     display.push_str(&format!(" {} ahead", ahead));
@@ -222,7 +218,7 @@ pub fn run(
                     .with_prompt("Checkout a branch (autocomplete or arrow keys)")
                     .items(&items)
                     .default(0)
-                    .highlight_matches(false)  // Disabled - conflicts with ANSI colors
+                    .highlight_matches(false) // Disabled - conflicts with ANSI colors
                     .interact()?;
 
                 branch_names[selection].clone()

@@ -65,13 +65,19 @@ fn render_commits(f: &mut Frame, app: &SplitApp, area: Rect) {
 
         // Add split marker line after this commit if there's a split point
         if has_split {
-            if let Some(sp) = app.split_points.iter().find(|sp| sp.after_commit_index == i) {
+            if let Some(sp) = app
+                .split_points
+                .iter()
+                .find(|sp| sp.after_commit_index == i)
+            {
                 let split_line = Line::from(vec![
                     Span::raw("  "),
                     Span::styled("──── ", Style::default().fg(Color::Green)),
                     Span::styled(
                         format!("split: {} ", sp.branch_name),
-                        Style::default().fg(Color::Green).add_modifier(Modifier::BOLD),
+                        Style::default()
+                            .fg(Color::Green)
+                            .add_modifier(Modifier::BOLD),
                     ),
                     Span::styled("────", Style::default().fg(Color::Green)),
                 ]);
@@ -108,18 +114,25 @@ fn render_preview(f: &mut Frame, app: &SplitApp, area: Rect) {
     let mut items: Vec<ListItem> = Vec::new();
 
     // Show parent at top
-    items.push(ListItem::new(Line::from(vec![
-        Span::styled(&app.parent_branch, Style::default().fg(Color::DarkGray)),
-    ])));
+    items.push(ListItem::new(Line::from(vec![Span::styled(
+        &app.parent_branch,
+        Style::default().fg(Color::DarkGray),
+    )])));
 
     // Show each resulting branch
     for (i, branch) in preview.iter().enumerate() {
         let indent = "  ".repeat(i + 1);
-        let connector = if i == preview.len() - 1 { "└─" } else { "├─" };
+        let connector = if i == preview.len() - 1 {
+            "└─"
+        } else {
+            "├─"
+        };
 
         let is_current = branch.name == app.current_branch;
         let name_style = if is_current {
-            Style::default().fg(Color::Yellow).add_modifier(Modifier::BOLD)
+            Style::default()
+                .fg(Color::Yellow)
+                .add_modifier(Modifier::BOLD)
         } else {
             Style::default().fg(Color::Green)
         };
@@ -128,7 +141,11 @@ fn render_preview(f: &mut Frame, app: &SplitApp, area: Rect) {
             Span::raw(format!("{}{} ", indent, connector)),
             Span::styled(&branch.name, name_style),
             Span::styled(
-                format!(" ({} commit{})", branch.commit_count, if branch.commit_count == 1 { "" } else { "s" }),
+                format!(
+                    " ({} commit{})",
+                    branch.commit_count,
+                    if branch.commit_count == 1 { "" } else { "s" }
+                ),
                 Style::default().fg(Color::DarkGray),
             ),
         ]);
@@ -136,12 +153,12 @@ fn render_preview(f: &mut Frame, app: &SplitApp, area: Rect) {
     }
 
     if preview.is_empty() {
-        items.push(ListItem::new(Line::from(vec![
-            Span::styled(
-                "  No split points defined",
-                Style::default().fg(Color::DarkGray).add_modifier(Modifier::ITALIC),
-            ),
-        ])));
+        items.push(ListItem::new(Line::from(vec![Span::styled(
+            "  No split points defined",
+            Style::default()
+                .fg(Color::DarkGray)
+                .add_modifier(Modifier::ITALIC),
+        )])));
     }
 
     let block = Block::default()
@@ -168,18 +185,19 @@ fn render_naming_dialog(f: &mut Frame, app: &SplitApp) {
     // Input field
     let input_area = Layout::default()
         .direction(Direction::Vertical)
-        .constraints([Constraint::Length(1), Constraint::Length(1), Constraint::Min(0)])
+        .constraints([
+            Constraint::Length(1),
+            Constraint::Length(1),
+            Constraint::Min(0),
+        ])
         .split(inner);
 
-    let input_text = Paragraph::new(app.input_buffer.as_str())
-        .style(Style::default().fg(Color::White));
+    let input_text =
+        Paragraph::new(app.input_buffer.as_str()).style(Style::default().fg(Color::White));
     f.render_widget(input_text, input_area[0]);
 
     // Show cursor
-    f.set_cursor_position((
-        input_area[0].x + app.input_cursor as u16,
-        input_area[0].y,
-    ));
+    f.set_cursor_position((input_area[0].x + app.input_cursor as u16, input_area[0].y));
 
     let hint = Paragraph::new("Enter to confirm, Esc to cancel")
         .style(Style::default().fg(Color::DarkGray));
@@ -238,21 +256,33 @@ fn render_help_dialog(f: &mut Frame) {
     f.render_widget(block, area);
 
     let help_text = vec![
-        Line::from(Span::styled("Navigation", Style::default().add_modifier(Modifier::BOLD))),
+        Line::from(Span::styled(
+            "Navigation",
+            Style::default().add_modifier(Modifier::BOLD),
+        )),
         Line::from("  j/↓    Move down"),
         Line::from("  k/↑    Move up"),
         Line::from(""),
-        Line::from(Span::styled("Actions", Style::default().add_modifier(Modifier::BOLD))),
+        Line::from(Span::styled(
+            "Actions",
+            Style::default().add_modifier(Modifier::BOLD),
+        )),
         Line::from("  s      Mark split point at cursor"),
         Line::from("  d      Remove split point at cursor"),
         Line::from("  S-J/K  Move split point down/up"),
         Line::from("  Enter  Execute split"),
         Line::from(""),
-        Line::from(Span::styled("Other", Style::default().add_modifier(Modifier::BOLD))),
+        Line::from(Span::styled(
+            "Other",
+            Style::default().add_modifier(Modifier::BOLD),
+        )),
         Line::from("  ?      Toggle help"),
         Line::from("  q/Esc  Quit"),
         Line::from(""),
-        Line::from(Span::styled("Press any key to close", Style::default().fg(Color::DarkGray))),
+        Line::from(Span::styled(
+            "Press any key to close",
+            Style::default().fg(Color::DarkGray),
+        )),
     ];
 
     let text = Paragraph::new(help_text);

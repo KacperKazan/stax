@@ -139,10 +139,7 @@ pub fn select_template_interactive(templates: &[PrTemplate]) -> Result<Option<Pr
     } else {
         // Find template by name (options[selection] is the name)
         let selected_name = &options[selection];
-        let template = templates
-            .iter()
-            .find(|t| &t.name == selected_name)
-            .cloned();
+        let template = templates.iter().find(|t| &t.name == selected_name).cloned();
         Ok(template)
     }
 }
@@ -160,8 +157,9 @@ mod tests {
         fs::create_dir(&github_dir).unwrap();
         fs::write(
             github_dir.join("PULL_REQUEST_TEMPLATE.md"),
-            "# Single template"
-        ).unwrap();
+            "# Single template",
+        )
+        .unwrap();
 
         let templates = discover_pr_templates(dir.path()).unwrap();
         assert_eq!(templates.len(), 1);
@@ -217,10 +215,7 @@ mod tests {
         let dir = TempDir::new().unwrap();
         let github_dir = dir.path().join(".github");
         fs::create_dir(&github_dir).unwrap();
-        fs::write(
-            github_dir.join("PULL_REQUEST_TEMPLATE.md"),
-            "# Single"
-        ).unwrap();
+        fs::write(github_dir.join("PULL_REQUEST_TEMPLATE.md"), "# Single").unwrap();
 
         let templates = discover_pr_templates(dir.path()).unwrap();
         assert_eq!(templates.len(), 1);

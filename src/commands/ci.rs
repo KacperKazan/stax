@@ -102,9 +102,7 @@ pub fn run(all: bool, json: bool, _refresh: bool) -> Result<()> {
         let pr_number = stack.branches.get(branch).and_then(|b| b.pr_number);
 
         // Fetch detailed check runs
-        let check_runs_result = rt.block_on(async {
-            fetch_check_runs(&client, &sha).await
-        });
+        let check_runs_result = rt.block_on(async { fetch_check_runs(&client, &sha).await });
 
         let (overall_status, check_runs) = match check_runs_result {
             Ok((status, runs)) => (status, runs),
@@ -194,10 +192,22 @@ pub fn run(all: bool, json: bool, _refresh: bool) -> Result<()> {
     }
 
     // Summary
-    let success_count = statuses.iter().filter(|s| s.overall_status.as_deref() == Some("success")).count();
-    let failure_count = statuses.iter().filter(|s| s.overall_status.as_deref() == Some("failure")).count();
-    let pending_count = statuses.iter().filter(|s| s.overall_status.as_deref() == Some("pending")).count();
-    let _no_ci_count = statuses.iter().filter(|s| s.overall_status.is_none()).count();
+    let success_count = statuses
+        .iter()
+        .filter(|s| s.overall_status.as_deref() == Some("success"))
+        .count();
+    let failure_count = statuses
+        .iter()
+        .filter(|s| s.overall_status.as_deref() == Some("failure"))
+        .count();
+    let pending_count = statuses
+        .iter()
+        .filter(|s| s.overall_status.as_deref() == Some("pending"))
+        .count();
+    let _no_ci_count = statuses
+        .iter()
+        .filter(|s| s.overall_status.is_none())
+        .count();
 
     if !statuses.is_empty() {
         let total = statuses.len();
@@ -334,14 +344,12 @@ mod tests {
             sha: "abc123def456".to_string(),
             sha_short: "abc123d".to_string(),
             overall_status: Some("success".to_string()),
-            check_runs: vec![
-                CheckRunInfo {
-                    name: "build".to_string(),
-                    status: "completed".to_string(),
-                    conclusion: Some("success".to_string()),
-                    url: None,
-                },
-            ],
+            check_runs: vec![CheckRunInfo {
+                name: "build".to_string(),
+                status: "completed".to_string(),
+                conclusion: Some("success".to_string()),
+                url: None,
+            }],
             pr_number: Some(42),
         };
 
@@ -384,7 +392,10 @@ mod tests {
         assert_eq!(response.total_count, 2);
         assert_eq!(response.check_runs.len(), 2);
         assert_eq!(response.check_runs[0].name, "build");
-        assert_eq!(response.check_runs[0].conclusion, Some("success".to_string()));
+        assert_eq!(
+            response.check_runs[0].conclusion,
+            Some("success".to_string())
+        );
         assert_eq!(response.check_runs[1].name, "test");
         assert_eq!(response.check_runs[1].conclusion, None);
     }

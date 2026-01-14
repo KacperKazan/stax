@@ -84,7 +84,8 @@ fn test_tui_restack_single_quiet() {
     // Go back to feature branch
     let branches = repo.list_branches();
     let feature_branch = branches.iter().find(|b| b.contains("feature-1")).unwrap();
-    repo.run_stax(&["checkout", feature_branch]).assert_success();
+    repo.run_stax(&["checkout", feature_branch])
+        .assert_success();
 
     // TUI calls: run_external_command(app, &["restack", "--quiet"])
     let output = repo.run_stax(&["restack", "--quiet"]);

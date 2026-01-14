@@ -98,26 +98,22 @@ fn handle_normal_action(app: &mut App, action: KeyAction) -> Result<()> {
                 FocusedPane::Diff => FocusedPane::Stack,
             };
         }
-        KeyAction::Up => {
-            match app.focused_pane {
-                FocusedPane::Stack => app.select_previous(),
-                FocusedPane::Diff => {
-                    if app.diff_scroll > 0 {
-                        app.diff_scroll -= 1;
-                    }
+        KeyAction::Up => match app.focused_pane {
+            FocusedPane::Stack => app.select_previous(),
+            FocusedPane::Diff => {
+                if app.diff_scroll > 0 {
+                    app.diff_scroll -= 1;
                 }
             }
-        }
-        KeyAction::Down => {
-            match app.focused_pane {
-                FocusedPane::Stack => app.select_next(),
-                FocusedPane::Diff => {
-                    if app.diff_scroll < app.total_diff_lines().saturating_sub(1) {
-                        app.diff_scroll += 1;
-                    }
+        },
+        KeyAction::Down => match app.focused_pane {
+            FocusedPane::Stack => app.select_next(),
+            FocusedPane::Diff => {
+                if app.diff_scroll < app.total_diff_lines().saturating_sub(1) {
+                    app.diff_scroll += 1;
                 }
             }
-        }
+        },
         KeyAction::Enter => {
             if let Some(branch) = app.selected_branch() {
                 if !branch.is_current {
@@ -286,7 +282,11 @@ fn handle_reorder_action(app: &mut App, action: KeyAction) -> Result<()> {
 }
 
 /// Handle actions in confirm mode
-fn handle_confirm_action(app: &mut App, action: KeyAction, confirm_action: &ConfirmAction) -> Result<()> {
+fn handle_confirm_action(
+    app: &mut App,
+    action: KeyAction,
+    confirm_action: &ConfirmAction,
+) -> Result<()> {
     match action {
         KeyAction::Char('y') | KeyAction::Char('Y') => {
             match confirm_action {
@@ -405,7 +405,10 @@ fn run_external_command(app: &mut App, args: &[&str]) -> Result<()> {
         app.set_status(format!("✓ {} completed", args.join(" ")));
     } else {
         let stderr = String::from_utf8_lossy(&output.stderr);
-        app.set_status(format!("✗ {}", stderr.lines().next().unwrap_or("Command failed")));
+        app.set_status(format!(
+            "✗ {}",
+            stderr.lines().next().unwrap_or("Command failed")
+        ));
     }
 
     Ok(())
@@ -415,7 +418,7 @@ fn run_external_command(app: &mut App, args: &[&str]) -> Result<()> {
 fn apply_reorder_changes(app: &mut App) -> Result<()> {
     // Get the reparent operations before clearing state
     let reparent_ops = app.get_reparent_operations();
-    
+
     let state = match app.reorder_state.take() {
         Some(s) => s,
         None => {
@@ -435,8 +438,16 @@ fn apply_reorder_changes(app: &mut App) -> Result<()> {
         return Ok(());
     }
 
-    let branch_word = if reparent_ops.len() == 1 { "branch" } else { "branches" };
-    app.set_status(format!("Applying reorder ({} {})...", reparent_ops.len(), branch_word));
+    let branch_word = if reparent_ops.len() == 1 {
+        "branch"
+    } else {
+        "branches"
+    };
+    app.set_status(format!(
+        "Applying reorder ({} {})...",
+        reparent_ops.len(),
+        branch_word
+    ));
 
     // Collect all affected branches (those being reparented)
     let affected_branches: Vec<String> = reparent_ops.iter().map(|(b, _)| b.clone()).collect();
@@ -447,12 +458,16 @@ fn apply_reorder_changes(app: &mut App) -> Result<()> {
     let summary = PlanSummary {
         branches_to_rebase: affected_branches.len(),
         branches_to_push: 0,
-        description: vec![format!("Reorder {} {}", affected_branches.len(), branch_word)],
+        description: vec![format!(
+            "Reorder {} {}",
+            affected_branches.len(),
+            branch_word
+        )],
     };
     tx::print_plan(tx.kind(), &summary, true); // TUI is quiet
     tx.set_plan_summary(summary);
     tx.snapshot()?;
-    
+
     // Apply each reparent operation directly (update metadata)
     for (branch, new_parent) in &reparent_ops {
         let parent_rev = match app.repo.branch_commit(new_parent) {
@@ -467,9 +482,12 @@ fn apply_reorder_changes(app: &mut App) -> Result<()> {
                 return Ok(());
             }
         };
-        
-        let merge_base = app.repo.merge_base(new_parent, branch).unwrap_or(parent_rev.clone());
-        
+
+        let merge_base = app
+            .repo
+            .merge_base(new_parent, branch)
+            .unwrap_or(parent_rev.clone());
+
         // Read existing metadata or create new
         let existing = BranchMetadata::read(app.repo.inner(), branch)?;
         let updated = if let Some(meta) = existing {
@@ -481,7 +499,7 @@ fn apply_reorder_changes(app: &mut App) -> Result<()> {
         } else {
             BranchMetadata::new(new_parent, &merge_base)
         };
-        
+
         if let Err(e) = updated.write(app.repo.inner(), branch) {
             tx.finish_err(
                 &format!("Failed to write metadata for {}: {}", branch, e),
@@ -492,10 +510,10 @@ fn apply_reorder_changes(app: &mut App) -> Result<()> {
             return Ok(());
         }
     }
-    
+
     // Now restack all affected branches (in order from the pending chain)
     let current_branch = app.repo.current_branch()?;
-    
+
     for (branch, new_parent) in &reparent_ops {
         // Checkout and rebase
         if let Err(e) = app.repo.checkout(branch) {
@@ -507,7 +525,7 @@ fn apply_reorder_changes(app: &mut App) -> Result<()> {
             app.set_status(format!("✗ Failed to checkout {}", branch));
             return Ok(());
         }
-        
+
         match app.repo.rebase(new_parent) {
             Ok(RebaseResult::Success) => {
                 // Update metadata with new parent revision
@@ -517,17 +535,16 @@ fn apply_reorder_changes(app: &mut App) -> Result<()> {
                         let _ = meta.write(app.repo.inner(), branch);
                     }
                 }
-                
+
                 // Record after-OID
                 let _ = tx.record_after(&app.repo, branch);
             }
             Ok(RebaseResult::Conflict) => {
-                tx.finish_err(
-                    "Rebase conflict",
-                    Some("restack"),
-                    Some(branch),
-                )?;
-                app.set_status(format!("✗ Conflict rebasing {} (stax undo to recover)", branch));
+                tx.finish_err("Rebase conflict", Some("restack"), Some(branch))?;
+                app.set_status(format!(
+                    "✗ Conflict rebasing {} (stax undo to recover)",
+                    branch
+                ));
                 return Ok(());
             }
             Err(e) => {
@@ -541,14 +558,18 @@ fn apply_reorder_changes(app: &mut App) -> Result<()> {
             }
         }
     }
-    
+
     // Return to original branch
     let _ = app.repo.checkout(&current_branch);
-    
+
     // Finish transaction successfully
     tx.finish_ok()?;
-    
-    app.set_status(format!("✓ Reordered {} {}", reparent_ops.len(), branch_word));
-    
+
+    app.set_status(format!(
+        "✓ Reordered {} {}",
+        reparent_ops.len(),
+        branch_word
+    ));
+
     Ok(())
 }

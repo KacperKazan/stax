@@ -1,7 +1,7 @@
 use anyhow::{Context, Result};
 use chrono::{DateTime, Utc};
-use octocrab::Octocrab;
 use octocrab::params::repos::Reference;
+use octocrab::Octocrab;
 use serde::{Deserialize, Serialize};
 
 use crate::config::Config;
@@ -171,19 +171,19 @@ impl GitHubClient {
 
         for run in &response.check_runs {
             match run.status.as_str() {
-                "completed" => {
-                    match run.conclusion.as_deref() {
-                        Some("success") | Some("skipped") | Some("neutral") => {}
-                        Some("failure") | Some("timed_out") | Some("cancelled")
-                        | Some("action_required") => {
-                            has_failure = true;
-                            all_success = false;
-                        }
-                        _ => {
-                            all_success = false;
-                        }
+                "completed" => match run.conclusion.as_deref() {
+                    Some("success") | Some("skipped") | Some("neutral") => {}
+                    Some("failure")
+                    | Some("timed_out")
+                    | Some("cancelled")
+                    | Some("action_required") => {
+                        has_failure = true;
+                        all_success = false;
                     }
-                }
+                    _ => {
+                        all_success = false;
+                    }
+                },
                 "queued" | "in_progress" | "waiting" | "requested" | "pending" => {
                     has_pending = true;
                     all_success = false;
@@ -212,7 +212,11 @@ impl GitHubClient {
     }
 
     /// Get PRs merged by the user in the last N hours
-    pub async fn get_recent_merged_prs(&self, hours: i64, username: &str) -> Result<Vec<PrActivity>> {
+    pub async fn get_recent_merged_prs(
+        &self,
+        hours: i64,
+        username: &str,
+    ) -> Result<Vec<PrActivity>> {
         let since = Utc::now() - chrono::Duration::hours(hours);
         // Use search API to find only user's merged PRs - much faster than listing all
         let url = format!(
@@ -244,7 +248,11 @@ impl GitHubClient {
     }
 
     /// Get PRs opened by the user in the last N hours
-    pub async fn get_recent_opened_prs(&self, hours: i64, username: &str) -> Result<Vec<PrActivity>> {
+    pub async fn get_recent_opened_prs(
+        &self,
+        hours: i64,
+        username: &str,
+    ) -> Result<Vec<PrActivity>> {
         let since = Utc::now() - chrono::Duration::hours(hours);
         // Use search API to find only user's created PRs
         let url = format!(
@@ -271,7 +279,11 @@ impl GitHubClient {
 
     /// Get reviews received on user's open PRs in the last N hours
     /// Only fetches user's own PRs to keep it fast
-    pub async fn get_reviews_received(&self, hours: i64, username: &str) -> Result<Vec<ReviewActivity>> {
+    pub async fn get_reviews_received(
+        &self,
+        hours: i64,
+        username: &str,
+    ) -> Result<Vec<ReviewActivity>> {
         let since = Utc::now() - chrono::Duration::hours(hours);
 
         // Use search to get only user's open PRs (fast)
@@ -289,7 +301,11 @@ impl GitHubClient {
                 "/repos/{}/{}/pulls/{}/reviews",
                 self.owner, self.repo, issue.number
             );
-            let pr_reviews: Vec<Review> = self.octocrab.get(&reviews_url, None::<&()>).await.unwrap_or_default();
+            let pr_reviews: Vec<Review> = self
+                .octocrab
+                .get(&reviews_url, None::<&()>)
+                .await
+                .unwrap_or_default();
 
             for review in pr_reviews {
                 if let Some(submitted) = review.submitted_at {
@@ -317,7 +333,11 @@ impl GitHubClient {
 
     /// Get reviews given by user on others' PRs in the last N hours
     /// Note: This is expensive for large repos, returns empty to keep standup fast
-    pub async fn get_reviews_given(&self, _hours: i64, _username: &str) -> Result<Vec<ReviewActivity>> {
+    pub async fn get_reviews_given(
+        &self,
+        _hours: i64,
+        _username: &str,
+    ) -> Result<Vec<ReviewActivity>> {
         // Skip for now - scanning all PRs is too slow for large repos
         // Could be implemented with GitHub's GraphQL API in the future
         Ok(vec![])
@@ -386,7 +406,9 @@ mod tests {
         let mock_server = MockServer::start().await;
 
         Mock::given(method("GET"))
-            .and(path("/repos/test-owner/test-repo/commits/abc123/check-runs"))
+            .and(path(
+                "/repos/test-owner/test-repo/commits/abc123/check-runs",
+            ))
             .respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!({
                 "total_count": 2,
                 "check_runs": [
@@ -407,7 +429,9 @@ mod tests {
         let mock_server = MockServer::start().await;
 
         Mock::given(method("GET"))
-            .and(path("/repos/test-owner/test-repo/commits/abc123/check-runs"))
+            .and(path(
+                "/repos/test-owner/test-repo/commits/abc123/check-runs",
+            ))
             .respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!({
                 "total_count": 3,
                 "check_runs": [
@@ -429,7 +453,9 @@ mod tests {
         let mock_server = MockServer::start().await;
 
         Mock::given(method("GET"))
-            .and(path("/repos/test-owner/test-repo/commits/abc123/check-runs"))
+            .and(path(
+                "/repos/test-owner/test-repo/commits/abc123/check-runs",
+            ))
             .respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!({
                 "total_count": 2,
                 "check_runs": [
@@ -450,7 +476,9 @@ mod tests {
         let mock_server = MockServer::start().await;
 
         Mock::given(method("GET"))
-            .and(path("/repos/test-owner/test-repo/commits/abc123/check-runs"))
+            .and(path(
+                "/repos/test-owner/test-repo/commits/abc123/check-runs",
+            ))
             .respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!({
                 "total_count": 1,
                 "check_runs": [
@@ -470,7 +498,9 @@ mod tests {
         let mock_server = MockServer::start().await;
 
         Mock::given(method("GET"))
-            .and(path("/repos/test-owner/test-repo/commits/abc123/check-runs"))
+            .and(path(
+                "/repos/test-owner/test-repo/commits/abc123/check-runs",
+            ))
             .respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!({
                 "total_count": 1,
                 "check_runs": [
@@ -490,7 +520,9 @@ mod tests {
         let mock_server = MockServer::start().await;
 
         Mock::given(method("GET"))
-            .and(path("/repos/test-owner/test-repo/commits/abc123/check-runs"))
+            .and(path(
+                "/repos/test-owner/test-repo/commits/abc123/check-runs",
+            ))
             .respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!({
                 "total_count": 0,
                 "check_runs": []
@@ -508,7 +540,9 @@ mod tests {
         let mock_server = MockServer::start().await;
 
         Mock::given(method("GET"))
-            .and(path("/repos/test-owner/test-repo/commits/abc123/check-runs"))
+            .and(path(
+                "/repos/test-owner/test-repo/commits/abc123/check-runs",
+            ))
             .respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!({
                 "total_count": 3,
                 "check_runs": [
@@ -530,7 +564,9 @@ mod tests {
         let mock_server = MockServer::start().await;
 
         Mock::given(method("GET"))
-            .and(path("/repos/test-owner/test-repo/commits/abc123/check-runs"))
+            .and(path(
+                "/repos/test-owner/test-repo/commits/abc123/check-runs",
+            ))
             .respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!({
                 "total_count": 1,
                 "check_runs": [
@@ -550,7 +586,9 @@ mod tests {
         let mock_server = MockServer::start().await;
 
         Mock::given(method("GET"))
-            .and(path("/repos/test-owner/test-repo/commits/abc123/check-runs"))
+            .and(path(
+                "/repos/test-owner/test-repo/commits/abc123/check-runs",
+            ))
             .respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!({
                 "total_count": 1,
                 "check_runs": [
@@ -570,7 +608,9 @@ mod tests {
         let mock_server = MockServer::start().await;
 
         Mock::given(method("GET"))
-            .and(path("/repos/test-owner/test-repo/commits/abc123/check-runs"))
+            .and(path(
+                "/repos/test-owner/test-repo/commits/abc123/check-runs",
+            ))
             .respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!({
                 "total_count": 1,
                 "check_runs": [
@@ -590,7 +630,9 @@ mod tests {
         let mock_server = MockServer::start().await;
 
         Mock::given(method("GET"))
-            .and(path("/repos/test-owner/test-repo/commits/abc123/check-runs"))
+            .and(path(
+                "/repos/test-owner/test-repo/commits/abc123/check-runs",
+            ))
             .respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!({
                 "total_count": 1,
                 "check_runs": [
@@ -611,7 +653,9 @@ mod tests {
         let mock_server = MockServer::start().await;
 
         Mock::given(method("GET"))
-            .and(path("/repos/test-owner/test-repo/commits/abc123/check-runs"))
+            .and(path(
+                "/repos/test-owner/test-repo/commits/abc123/check-runs",
+            ))
             .respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!({
                 "total_count": 1,
                 "check_runs": [
@@ -632,7 +676,9 @@ mod tests {
         let mock_server = MockServer::start().await;
 
         Mock::given(method("GET"))
-            .and(path("/repos/test-owner/test-repo/commits/abc123/check-runs"))
+            .and(path(
+                "/repos/test-owner/test-repo/commits/abc123/check-runs",
+            ))
             .respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!({
                 "total_count": 1,
                 "check_runs": [
@@ -652,7 +698,9 @@ mod tests {
         let mock_server = MockServer::start().await;
 
         Mock::given(method("GET"))
-            .and(path("/repos/test-owner/test-repo/commits/abc123/check-runs"))
+            .and(path(
+                "/repos/test-owner/test-repo/commits/abc123/check-runs",
+            ))
             .respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!({
                 "total_count": 1,
                 "check_runs": [
@@ -697,7 +745,10 @@ mod tests {
         assert_eq!(response.total_count, 2);
         assert_eq!(response.check_runs.len(), 2);
         assert_eq!(response.check_runs[0].status, "completed");
-        assert_eq!(response.check_runs[0].conclusion, Some("success".to_string()));
+        assert_eq!(
+            response.check_runs[0].conclusion,
+            Some("success".to_string())
+        );
         assert_eq!(response.check_runs[1].status, "in_progress");
         assert_eq!(response.check_runs[1].conclusion, None);
     }

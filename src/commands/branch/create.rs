@@ -35,7 +35,9 @@ pub fn run(
         (None, None) => {
             // Check if we're in an interactive terminal
             if !Term::stderr().is_term() {
-                bail!("Branch name required. Use: stax create <name> or stax create -m \"message\"");
+                bail!(
+                    "Branch name required. Use: stax create <name> or stax create -m \"message\""
+                );
             }
             // Launch interactive wizard
             let (wizard_name, wizard_msg, wizard_stage) =
@@ -93,7 +95,8 @@ pub fn run(
     // Checkout the new branch
     repo.checkout(&branch_name)?;
 
-    if let Ok(remote_branches) = remote::get_remote_branches(repo.workdir()?, config.remote_name()) {
+    if let Ok(remote_branches) = remote::get_remote_branches(repo.workdir()?, config.remote_name())
+    {
         if !remote_branches.contains(&parent_branch) {
             println!(
                 "{}",

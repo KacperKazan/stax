@@ -50,7 +50,11 @@ pub fn run() -> Result<()> {
         return Ok(());
     }
 
-    let branch_word = if branches_to_restack.len() == 1 { "branch" } else { "branches" };
+    let branch_word = if branches_to_restack.len() == 1 {
+        "branch"
+    } else {
+        "branches"
+    };
     println!(
         "Restacking {} {}...",
         branches_to_restack.len().to_string().cyan(),
@@ -63,7 +67,11 @@ pub fn run() -> Result<()> {
     let summary = PlanSummary {
         branches_to_rebase: branches_to_restack.len(),
         branches_to_push: 0,
-        description: vec![format!("Upstack restack {} {}", branches_to_restack.len(), branch_word)],
+        description: vec![format!(
+            "Upstack restack {} {}",
+            branches_to_restack.len(),
+            branch_word
+        )],
     };
     tx::print_plan(tx.kind(), &summary, false);
     tx.set_plan_summary(summary);
@@ -91,10 +99,10 @@ pub fn run() -> Result<()> {
                     ..meta
                 };
                 updated_meta.write(repo.inner(), branch)?;
-                
+
                 // Record the after-OID for this branch
                 tx.record_after(&repo, branch)?;
-                
+
                 println!("    {}", "✓ done".green());
             }
             RebaseResult::Conflict => {
@@ -102,14 +110,10 @@ pub fn run() -> Result<()> {
                 println!();
                 println!("{}", "Resolve conflicts and run:".yellow());
                 println!("  {}", "stax continue".cyan());
-                
+
                 // Finish transaction with error
-                tx.finish_err(
-                    "Rebase conflict",
-                    Some("rebase"),
-                    Some(branch),
-                )?;
-                
+                tx.finish_err("Rebase conflict", Some("rebase"), Some(branch))?;
+
                 return Ok(());
             }
         }

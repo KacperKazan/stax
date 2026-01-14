@@ -35,7 +35,10 @@ pub fn run(message: Option<String>, skip_confirm: bool) -> Result<()> {
     }
 
     if commit_count == 1 {
-        println!("{}", "Only one commit on this branch, nothing to squash.".yellow());
+        println!(
+            "{}",
+            "Only one commit on this branch, nothing to squash.".yellow()
+        );
         return Ok(());
     }
 

@@ -82,9 +82,17 @@ fn test_fold_restores_branch_on_conflict() {
     repo.commit("Middle commit");
 
     // Reparent feature onto middle
-    repo.run_stax(&["checkout", &feature_branch]).assert_success();
-    repo.run_stax(&["branch", "reparent", "-b", &feature_branch, "-p", &middle_branch])
+    repo.run_stax(&["checkout", &feature_branch])
         .assert_success();
+    repo.run_stax(&[
+        "branch",
+        "reparent",
+        "-b",
+        &feature_branch,
+        "-p",
+        &middle_branch,
+    ])
+    .assert_success();
 
     // Now try to fold feature into middle - should fail due to conflict
     // but should restore us to the feature branch
@@ -144,11 +152,7 @@ fn test_merge_warns_on_dirty_tree() {
     let output = repo.run_stax(&["merge", "--yes"]);
 
     // Should either fail or warn about dirty working tree
-    let combined = format!(
-        "{}{}",
-        TestRepo::stdout(&output),
-        TestRepo::stderr(&output)
-    );
+    let combined = format!("{}{}", TestRepo::stdout(&output), TestRepo::stderr(&output));
 
     // If it ran at all, it should have mentioned dirty/uncommitted/stash
     // or it should have failed
@@ -187,11 +191,7 @@ fn test_status_handles_detached_head() {
     // Status should not panic, should give helpful message
     let output = repo.run_stax(&["status"]);
 
-    let combined = format!(
-        "{}{}",
-        TestRepo::stdout(&output),
-        TestRepo::stderr(&output)
-    );
+    let combined = format!("{}{}", TestRepo::stdout(&output), TestRepo::stderr(&output));
 
     // Should either succeed with some output or fail with helpful message
     assert!(
@@ -270,11 +270,7 @@ fn test_undo_yes_flag_no_prompt() {
     let output = repo.run_stax(&["undo", "--yes"]);
 
     // Should either succeed or say nothing to undo (both are valid)
-    let combined = format!(
-        "{}{}",
-        TestRepo::stdout(&output),
-        TestRepo::stderr(&output)
-    );
+    let combined = format!("{}{}", TestRepo::stdout(&output), TestRepo::stderr(&output));
     assert!(
         output.status.success() || combined.contains("nothing") || combined.contains("No undo"),
         "Undo --yes should work without prompting"
@@ -290,13 +286,12 @@ fn test_redo_yes_flag_no_prompt() {
     let output = repo.run_stax(&["redo", "--yes"]);
 
     // Should either succeed or say nothing to redo
-    let combined = format!(
-        "{}{}",
-        TestRepo::stdout(&output),
-        TestRepo::stderr(&output)
-    );
+    let combined = format!("{}{}", TestRepo::stdout(&output), TestRepo::stderr(&output));
     assert!(
-        output.status.success() || combined.contains("nothing") || combined.contains("No redo") || combined.contains("No operations"),
+        output.status.success()
+            || combined.contains("nothing")
+            || combined.contains("No redo")
+            || combined.contains("No operations"),
         "Redo --yes should work without prompting, got: {}",
         combined
     );

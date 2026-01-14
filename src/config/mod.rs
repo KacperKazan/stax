@@ -4,8 +4,7 @@ use std::fs;
 use std::path::PathBuf;
 
 /// Main config (safe to commit to dotfiles)
-#[derive(Debug, Serialize, Deserialize)]
-#[derive(Default)]
+#[derive(Debug, Serialize, Deserialize, Default)]
 pub struct Config {
     #[serde(default)]
     pub branch: BranchConfig,
@@ -263,7 +262,6 @@ impl Config {
     pub fn remote_base_url(&self) -> &str {
         self.remote.base_url.as_str()
     }
-
 }
 
 #[cfg(test)]
@@ -300,7 +298,10 @@ mod tests {
         let mut config = Config::default();
         config.branch.prefix = Some("cesar/".to_string());
         // If name already has prefix, don't add it again
-        assert_eq!(config.format_branch_name("cesar/my-feature"), "cesar/my-feature");
+        assert_eq!(
+            config.format_branch_name("cesar/my-feature"),
+            "cesar/my-feature"
+        );
     }
 
     #[test]
@@ -326,20 +327,29 @@ mod tests {
     #[test]
     fn test_format_branch_name_spaces_replaced() {
         let config = Config::default();
-        assert_eq!(config.format_branch_name("my cool feature"), "my-cool-feature");
+        assert_eq!(
+            config.format_branch_name("my cool feature"),
+            "my-cool-feature"
+        );
     }
 
     #[test]
     fn test_format_branch_name_special_chars_replaced() {
         let config = Config::default();
-        assert_eq!(config.format_branch_name("feat: add stuff!"), "feat-add-stuff-");
+        assert_eq!(
+            config.format_branch_name("feat: add stuff!"),
+            "feat-add-stuff-"
+        );
     }
 
     #[test]
     fn test_format_branch_name_custom_replacement() {
         let mut config = Config::default();
         config.branch.replacement = "_".to_string();
-        assert_eq!(config.format_branch_name("my cool feature"), "my_cool_feature");
+        assert_eq!(
+            config.format_branch_name("my cool feature"),
+            "my_cool_feature"
+        );
     }
 
     #[test]
@@ -482,7 +492,11 @@ prefix = "test/"
         {
             use std::os::unix::fs::PermissionsExt;
             let perms = fs::metadata(&creds_path).unwrap().permissions();
-            assert_eq!(perms.mode() & 0o777, 0o600, "File should have 600 permissions");
+            assert_eq!(
+                perms.mode() & 0o777,
+                0o600,
+                "File should have 600 permissions"
+            );
         }
 
         // Cleanup
@@ -540,7 +554,11 @@ prefix = "test/"
 
         // Create temp directory with unique name including thread id
         let thread_id = std::thread::current().id();
-        let temp_dir = std::env::temp_dir().join(format!("stax-test-roundtrip-{}-{:?}", std::process::id(), thread_id));
+        let temp_dir = std::env::temp_dir().join(format!(
+            "stax-test-roundtrip-{}-{:?}",
+            std::process::id(),
+            thread_id
+        ));
         fs::create_dir_all(&temp_dir).unwrap();
 
         // Override HOME
@@ -571,7 +589,8 @@ prefix = "test/"
         let orig_github = env::var("GITHUB_TOKEN").ok();
 
         // Create temp directory with credentials file
-        let temp_dir = std::env::temp_dir().join(format!("stax-test-priority-{}", std::process::id()));
+        let temp_dir =
+            std::env::temp_dir().join(format!("stax-test-priority-{}", std::process::id()));
         let config_dir = temp_dir.join(".config").join("stax");
         fs::create_dir_all(&config_dir).unwrap();
 

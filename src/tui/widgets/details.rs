@@ -21,7 +21,10 @@ pub fn render_details(f: &mut Frame, app: &App, area: Rect) {
     let paragraph = Paragraph::new(content).block(
         Block::default()
             .borders(Borders::ALL)
-            .title(Span::styled(" Details ", Style::default().fg(Color::DarkGray)))
+            .title(Span::styled(
+                " Details ",
+                Style::default().fg(Color::DarkGray),
+            ))
             .border_style(Style::default().fg(Color::DarkGray)),
     );
 
@@ -41,7 +44,10 @@ fn build_details_content(branch: &BranchDisplay) -> Vec<Line<'static>> {
 
     // PR info
     if let Some(pr_num) = branch.pr_number {
-        let state = branch.pr_state.clone().unwrap_or_else(|| "unknown".to_string());
+        let state = branch
+            .pr_state
+            .clone()
+            .unwrap_or_else(|| "unknown".to_string());
         let state_color = match state.to_lowercase().as_str() {
             "open" => Color::Green,
             "closed" => Color::Red,
@@ -57,16 +63,20 @@ fn build_details_content(branch: &BranchDisplay) -> Vec<Line<'static>> {
         ]));
 
         if let Some(url) = &branch.pr_url {
-            lines.push(Line::from(vec![
-                Span::styled(url.clone(), Style::default().fg(Color::Blue)),
-            ]));
+            lines.push(Line::from(vec![Span::styled(
+                url.clone(),
+                Style::default().fg(Color::Blue),
+            )]));
         }
     }
 
     // Remote status (vs origin)
     if branch.has_remote {
         let mut remote_parts = Vec::new();
-        remote_parts.push(Span::styled("Remote: ", Style::default().fg(Color::DarkGray)));
+        remote_parts.push(Span::styled(
+            "Remote: ",
+            Style::default().fg(Color::DarkGray),
+        ));
 
         if branch.unpushed > 0 {
             remote_parts.push(Span::styled(
@@ -101,7 +111,10 @@ fn build_details_content(branch: &BranchDisplay) -> Vec<Line<'static>> {
     // Ahead/behind vs parent
     if branch.ahead > 0 || branch.behind > 0 {
         let mut parts = Vec::new();
-        parts.push(Span::styled("Parent: ", Style::default().fg(Color::DarkGray)));
+        parts.push(Span::styled(
+            "Parent: ",
+            Style::default().fg(Color::DarkGray),
+        ));
 
         if branch.ahead > 0 {
             parts.push(Span::styled(
@@ -137,7 +150,10 @@ fn build_details_content(branch: &BranchDisplay) -> Vec<Line<'static>> {
         if !status_parts.is_empty() {
             status_parts.push(Span::raw("  "));
         }
-        status_parts.push(Span::styled("⟳ needs restack", Style::default().fg(Color::Red)));
+        status_parts.push(Span::styled(
+            "⟳ needs restack",
+            Style::default().fg(Color::Red),
+        ));
     }
 
     if !status_parts.is_empty() {

@@ -83,7 +83,9 @@ pub fn run(branch: Option<String>, parent: Option<String>) -> Result<()> {
     }
 
     let parent_rev = repo.branch_commit(&parent_branch)?;
-    let merge_base = repo.merge_base(&parent_branch, &target).unwrap_or(parent_rev.clone());
+    let merge_base = repo
+        .merge_base(&parent_branch, &target)
+        .unwrap_or(parent_rev.clone());
 
     let existing = BranchMetadata::read(repo.inner(), &target)?;
     let updated = if let Some(meta) = existing {
@@ -99,7 +101,8 @@ pub fn run(branch: Option<String>, parent: Option<String>) -> Result<()> {
     updated.write(repo.inner(), &target)?;
 
     let config = crate::config::Config::load()?;
-    if let Ok(remote_branches) = remote::get_remote_branches(repo.workdir()?, config.remote_name()) {
+    if let Ok(remote_branches) = remote::get_remote_branches(repo.workdir()?, config.remote_name())
+    {
         if !remote_branches.contains(&parent_branch) {
             println!(
                 "{}",
@@ -120,7 +123,10 @@ pub fn run(branch: Option<String>, parent: Option<String>) -> Result<()> {
     );
 
     if parent_rev != merge_base {
-        println!("{}", "Note: restack is recommended for this branch.".yellow());
+        println!(
+            "{}",
+            "Note: restack is recommended for this branch.".yellow()
+        );
     }
 
     Ok(())

@@ -22,8 +22,9 @@ fn test_submit_with_single_template() {
     fs::create_dir(&github_dir).unwrap();
     fs::write(
         github_dir.join("PULL_REQUEST_TEMPLATE.md"),
-        "## Description\n\nPlease describe your changes.\n\n## Testing\n\nHow was this tested?"
-    ).unwrap();
+        "## Description\n\nPlease describe your changes.\n\n## Testing\n\nHow was this tested?",
+    )
+    .unwrap();
 
     // Create a branch with stax
     let output = repo.run_stax(&["create", "test-branch", "-m", "test commit"]);
@@ -45,9 +46,21 @@ fn test_template_discovery_multiple() {
     let template_dir = repo.path().join(".github/PULL_REQUEST_TEMPLATE");
     fs::create_dir_all(&template_dir).unwrap();
 
-    fs::write(template_dir.join("feature.md"), "# Feature template\n\n## Changes\n\n").unwrap();
-    fs::write(template_dir.join("bugfix.md"), "# Bugfix template\n\n## Bug Description\n\n").unwrap();
-    fs::write(template_dir.join("docs.md"), "# Docs template\n\n## Documentation Changes\n\n").unwrap();
+    fs::write(
+        template_dir.join("feature.md"),
+        "# Feature template\n\n## Changes\n\n",
+    )
+    .unwrap();
+    fs::write(
+        template_dir.join("bugfix.md"),
+        "# Bugfix template\n\n## Bug Description\n\n",
+    )
+    .unwrap();
+    fs::write(
+        template_dir.join("docs.md"),
+        "# Docs template\n\n## Documentation Changes\n\n",
+    )
+    .unwrap();
 
     // Test discovery returns all templates
     let templates = stax::github::pr_template::discover_pr_templates(&repo.path()).unwrap();
@@ -84,8 +97,9 @@ fn test_no_template_flag_skips_template() {
     fs::create_dir(&github_dir).unwrap();
     fs::write(
         github_dir.join("PULL_REQUEST_TEMPLATE.md"),
-        "# Template content"
-    ).unwrap();
+        "# Template content",
+    )
+    .unwrap();
 
     // Verify template exists
     let templates = stax::github::pr_template::discover_pr_templates(&repo.path()).unwrap();
@@ -124,7 +138,11 @@ fn test_template_in_docs_directory() {
     // Create template in docs directory (alternative location)
     let docs_dir = repo.path().join("docs");
     fs::create_dir_all(&docs_dir).unwrap();
-    fs::write(docs_dir.join("PULL_REQUEST_TEMPLATE.md"), "# Docs location template\n").unwrap();
+    fs::write(
+        docs_dir.join("PULL_REQUEST_TEMPLATE.md"),
+        "# Docs location template\n",
+    )
+    .unwrap();
 
     // Create a branch
     let output = repo.run_stax(&["create", "test-branch", "-m", "test commit"]);

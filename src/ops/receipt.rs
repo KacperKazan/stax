@@ -128,7 +128,7 @@ impl OpReceipt {
         head_branch_before: String,
     ) -> Self {
         let started_at = chrono::Utc::now().to_rfc3339();
-        
+
         Self {
             op_id,
             kind,
@@ -144,7 +144,7 @@ impl OpReceipt {
             error: None,
         }
     }
-    
+
     /// Add a local ref to track
     pub fn add_local_ref(&mut self, branch: &str, oid_before: Option<&str>) {
         self.local_refs.push(LocalRefEntry {
@@ -155,7 +155,7 @@ impl OpReceipt {
             oid_after: None,
         });
     }
-    
+
     /// Add a remote ref to track
     pub fn add_remote_ref(&mut self, remote: &str, branch: &str, oid_before: Option<&str>) {
         self.remote_refs.push(RemoteRefEntry {
@@ -166,29 +166,38 @@ impl OpReceipt {
             oid_after: None,
         });
     }
-    
+
     /// Update the after-OID for a local ref
     pub fn update_local_ref_after(&mut self, branch: &str, oid_after: &str) {
         if let Some(entry) = self.local_refs.iter_mut().find(|e| e.branch == branch) {
             entry.oid_after = Some(oid_after.to_string());
         }
     }
-    
+
     /// Update the after-OID for a remote ref
     pub fn update_remote_ref_after(&mut self, remote: &str, branch: &str, oid_after: &str) {
-        if let Some(entry) = self.remote_refs.iter_mut().find(|e| e.remote == remote && e.branch == branch) {
+        if let Some(entry) = self
+            .remote_refs
+            .iter_mut()
+            .find(|e| e.remote == remote && e.branch == branch)
+        {
             entry.oid_after = Some(oid_after.to_string());
         }
     }
-    
+
     /// Mark operation as successful
     pub fn mark_success(&mut self) {
         self.status = OpStatus::Success;
         self.finished_at = Some(chrono::Utc::now().to_rfc3339());
     }
-    
+
     /// Mark operation as failed
-    pub fn mark_failed(&mut self, message: &str, failed_step: Option<&str>, failed_branch: Option<&str>) {
+    pub fn mark_failed(
+        &mut self,
+        message: &str,
+        failed_step: Option<&str>,
+        failed_branch: Option<&str>,
+    ) {
         self.status = OpStatus::Failed;
         self.finished_at = Some(chrono::Utc::now().to_rfc3339());
         self.error = Some(OpError {
@@ -197,23 +206,22 @@ impl OpReceipt {
             failed_branch: failed_branch.map(|s| s.to_string()),
         });
     }
-    
+
     /// Get the receipt file path
     pub fn file_path(git_dir: &Path, op_id: &str) -> std::path::PathBuf {
         super::ops_dir(git_dir).join(format!("{}.json", op_id))
     }
-    
+
     /// Save receipt to disk
     pub fn save(&self, git_dir: &Path) -> Result<()> {
         super::ensure_ops_dir(git_dir)?;
         let path = Self::file_path(git_dir, &self.op_id);
-        let json = serde_json::to_string_pretty(self)
-            .context("Failed to serialize receipt")?;
+        let json = serde_json::to_string_pretty(self).context("Failed to serialize receipt")?;
         std::fs::write(&path, json)
             .with_context(|| format!("Failed to write receipt: {}", path.display()))?;
         Ok(())
     }
-    
+
     /// Load receipt from disk
     pub fn load(git_dir: &Path, op_id: &str) -> Result<Self> {
         let path = Self::file_path(git_dir, op_id);
@@ -223,7 +231,7 @@ impl OpReceipt {
             .with_context(|| format!("Failed to parse receipt: {}", path.display()))?;
         Ok(receipt)
     }
-    
+
     /// Load the latest receipt
     pub fn load_latest(git_dir: &Path) -> Result<Option<Self>> {
         match super::latest_op_id(git_dir)? {
@@ -231,28 +239,29 @@ impl OpReceipt {
             None => Ok(None),
         }
     }
-    
+
     /// Check if this receipt can be undone
     pub fn can_undo(&self) -> bool {
         // Can undo if we have local refs with before-OIDs
         self.local_refs.iter().any(|r| r.oid_before.is_some())
     }
-    
+
     /// Check if this receipt can be redone
     pub fn can_redo(&self) -> bool {
         // Can redo if we have local refs with after-OIDs
         self.local_refs.iter().any(|r| r.oid_after.is_some())
     }
-    
+
     /// Check if this receipt has remote changes
     pub fn has_remote_changes(&self) -> bool {
         !self.remote_refs.is_empty()
     }
-    
+
     /// Count branches that were actually modified
     #[allow(dead_code)]
     pub fn modified_branch_count(&self) -> usize {
-        self.local_refs.iter()
+        self.local_refs
+            .iter()
             .filter(|r| r.oid_before != r.oid_after)
             .count()
     }
@@ -391,7 +400,10 @@ mod tests {
         assert_eq!(receipt.remote_refs.len(), 1);
         assert_eq!(receipt.remote_refs[0].remote, "origin");
         assert_eq!(receipt.remote_refs[0].branch, "feature/foo");
-        assert_eq!(receipt.remote_refs[0].remote_refname, "refs/remotes/origin/feature/foo");
+        assert_eq!(
+            receipt.remote_refs[0].remote_refname,
+            "refs/remotes/origin/feature/foo"
+        );
     }
 
     #[test]
@@ -564,4 +576,3 @@ mod tests {
         assert_eq!(cloned.message, "Test error");
     }
 }
-

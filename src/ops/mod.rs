@@ -18,21 +18,21 @@ use std::process::Command;
 /// Format: 20251229T120500Z-4f2a9c
 pub fn generate_op_id() -> String {
     use std::time::SystemTime;
-    
+
     let now = SystemTime::now()
         .duration_since(std::time::UNIX_EPOCH)
         .unwrap();
-    
+
     // Format as ISO-ish timestamp
     let secs = now.as_secs();
-    let datetime = chrono::DateTime::from_timestamp(secs as i64, 0)
-        .unwrap_or_else(chrono::Utc::now);
+    let datetime =
+        chrono::DateTime::from_timestamp(secs as i64, 0).unwrap_or_else(chrono::Utc::now);
     let timestamp = datetime.format("%Y%m%dT%H%M%SZ").to_string();
-    
+
     // Add random suffix for uniqueness
     let random: u32 = rand_suffix();
     let suffix = format!("{:06x}", random & 0xFFFFFF);
-    
+
     format!("{}-{}", timestamp, suffix)
 }
 
@@ -41,7 +41,7 @@ fn rand_suffix() -> u32 {
     use std::collections::hash_map::DefaultHasher;
     use std::hash::{Hash, Hasher};
     use std::time::SystemTime;
-    
+
     let mut hasher = DefaultHasher::new();
     SystemTime::now().hash(&mut hasher);
     std::process::id().hash(&mut hasher);
@@ -74,7 +74,7 @@ pub fn backup_ref_name(op_id: &str, branch: &str) -> String {
 /// Create a backup ref for a branch
 pub fn create_backup_ref(workdir: &Path, op_id: &str, branch: &str, oid: &str) -> Result<()> {
     let ref_name = backup_ref_name(op_id, branch);
-    
+
     let status = Command::new("git")
         .args(["update-ref", &ref_name, oid])
         .current_dir(workdir)
@@ -82,11 +82,11 @@ pub fn create_backup_ref(workdir: &Path, op_id: &str, branch: &str, oid: &str) -
         .stderr(std::process::Stdio::null())
         .status()
         .context("Failed to run git update-ref")?;
-    
+
     if !status.success() {
         anyhow::bail!("Failed to create backup ref {} -> {}", ref_name, oid);
     }
-    
+
     Ok(())
 }
 
@@ -94,18 +94,22 @@ pub fn create_backup_ref(workdir: &Path, op_id: &str, branch: &str, oid: &str) -
 pub fn delete_backup_refs(repo: &GitRepo, op_id: &str) -> Result<()> {
     let prefix = backup_ref_prefix(op_id);
     let workdir = repo.workdir()?;
-    
+
     // List all refs with this prefix
     let output = Command::new("git")
-        .args(["for-each-ref", "--format=%(refname)", &format!("{}*", prefix.trim_end_matches('/'))])
+        .args([
+            "for-each-ref",
+            "--format=%(refname)",
+            &format!("{}*", prefix.trim_end_matches('/')),
+        ])
         .current_dir(workdir)
         .output()
         .context("Failed to list backup refs")?;
-    
+
     if !output.status.success() {
         return Ok(()); // No refs to delete
     }
-    
+
     let refs = String::from_utf8_lossy(&output.stdout);
     for ref_name in refs.lines() {
         if ref_name.is_empty() {
@@ -113,7 +117,7 @@ pub fn delete_backup_refs(repo: &GitRepo, op_id: &str) -> Result<()> {
         }
         let _ = repo.delete_ref(ref_name);
     }
-    
+
     Ok(())
 }
 
@@ -123,7 +127,7 @@ pub fn list_op_ids(git_dir: &Path) -> Result<Vec<String>> {
     if !dir.exists() {
         return Ok(Vec::new());
     }
-    
+
     let mut ops: Vec<String> = std::fs::read_dir(&dir)?
         .filter_map(|entry| entry.ok())
         .filter_map(|entry| {
@@ -135,11 +139,11 @@ pub fn list_op_ids(git_dir: &Path) -> Result<Vec<String>> {
             }
         })
         .collect();
-    
+
     // Sort descending (newest first) - timestamp format is sortable
     ops.sort();
     ops.reverse();
-    
+
     Ok(ops)
 }
 
@@ -175,7 +179,10 @@ mod tests {
     #[test]
     fn test_backup_ref_name() {
         let ref_name = backup_ref_name("20251229T120500Z-abc123", "feature/foo");
-        assert_eq!(ref_name, "refs/stax/backups/20251229T120500Z-abc123/feature/foo");
+        assert_eq!(
+            ref_name,
+            "refs/stax/backups/20251229T120500Z-abc123/feature/foo"
+        );
     }
 
     #[test]
@@ -264,4 +271,3 @@ mod tests {
         assert!(suffix > 0 || suffix == 0); // Always true, just testing it runs
     }
 }
-

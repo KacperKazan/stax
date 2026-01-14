@@ -53,7 +53,10 @@ fn run_init(repo: &GitRepo) -> Result<bool> {
             repo.set_trunk(&detected)?;
             println!("Trunk set to {}", detected.cyan());
             println!();
-            println!("{}", "Ready to go! Try `stax bc <name>` to create your first branch.".green());
+            println!(
+                "{}",
+                "Ready to go! Try `stax bc <name>` to create your first branch.".green()
+            );
             return Ok(true);
         } else {
             // No branches and can't detect trunk - need at least one commit
@@ -113,7 +116,10 @@ fn run_init(repo: &GitRepo) -> Result<bool> {
     }
 
     println!();
-    println!("{}", "Ready to go! Try `stax bc <name>` to create your first branch.".green());
+    println!(
+        "{}",
+        "Ready to go! Try `stax bc <name>` to create your first branch.".green()
+    );
 
     Ok(true)
 }

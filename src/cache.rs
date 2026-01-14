@@ -14,14 +14,12 @@ pub struct BranchCacheEntry {
     pub updated_at: u64,
 }
 
-#[derive(Serialize, Deserialize, Debug)]
-#[derive(Default)]
+#[derive(Serialize, Deserialize, Debug, Default)]
 pub struct CiCache {
     pub branches: HashMap<String, BranchCacheEntry>,
     #[serde(default)]
     pub last_refresh: u64,
 }
-
 
 impl CiCache {
     /// Get cache file path for current repo
@@ -132,18 +130,29 @@ mod tests {
     fn test_cache_save_and_load() {
         let temp = TempDir::new().unwrap();
         let mut cache = CiCache::default();
-        cache.update("feature-1", Some("success".to_string()), Some("OPEN".to_string()));
+        cache.update(
+            "feature-1",
+            Some("success".to_string()),
+            Some("OPEN".to_string()),
+        );
         cache.save(temp.path()).unwrap();
 
         let loaded = CiCache::load(temp.path());
         assert!(loaded.branches.contains_key("feature-1"));
-        assert_eq!(loaded.get_ci_state("feature-1"), Some("success".to_string()));
+        assert_eq!(
+            loaded.get_ci_state("feature-1"),
+            Some("success".to_string())
+        );
     }
 
     #[test]
     fn test_cache_update() {
         let mut cache = CiCache::default();
-        cache.update("branch-1", Some("pending".to_string()), Some("DRAFT".to_string()));
+        cache.update(
+            "branch-1",
+            Some("pending".to_string()),
+            Some("DRAFT".to_string()),
+        );
 
         assert!(cache.branches.contains_key("branch-1"));
         let entry = cache.branches.get("branch-1").unwrap();
@@ -225,7 +234,11 @@ mod tests {
     #[test]
     fn test_cache_serialization() {
         let mut cache = CiCache::default();
-        cache.update("branch", Some("success".to_string()), Some("MERGED".to_string()));
+        cache.update(
+            "branch",
+            Some("success".to_string()),
+            Some("MERGED".to_string()),
+        );
         cache.mark_refreshed();
 
         let json = serde_json::to_string(&cache).unwrap();
@@ -235,4 +248,3 @@ mod tests {
         assert!(deserialized.last_refresh > 0);
     }
 }
-

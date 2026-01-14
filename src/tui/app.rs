@@ -38,12 +38,12 @@ pub struct BranchDisplay {
     pub column: usize,
     pub is_current: bool,
     pub is_trunk: bool,
-    pub ahead: usize,        // commits ahead of parent
-    pub behind: usize,       // commits behind parent
+    pub ahead: usize,  // commits ahead of parent
+    pub behind: usize, // commits behind parent
     pub needs_restack: bool,
     pub has_remote: bool,
-    pub unpushed: usize,     // commits ahead of remote (unpushed)
-    pub unpulled: usize,     // commits behind remote (unpulled)
+    pub unpushed: usize, // commits ahead of remote (unpushed)
+    pub unpulled: usize, // commits behind remote (unpulled)
     pub pr_number: Option<u64>,
     pub pr_state: Option<String>,
     pub pr_url: Option<String>,
@@ -205,9 +205,8 @@ impl App {
 
         // Get trunk children (each starts a chain)
         let trunk_info = self.stack.branches.get(trunk);
-        let trunk_children: Vec<String> = trunk_info
-            .map(|b| b.children.clone())
-            .unwrap_or_default();
+        let trunk_children: Vec<String> =
+            trunk_info.map(|b| b.children.clone()).unwrap_or_default();
 
         if trunk_children.is_empty() {
             // Only trunk exists
@@ -263,7 +262,9 @@ impl App {
 
         let (ahead, behind) = if let Some(info) = info {
             if let Some(parent) = &info.parent {
-                self.repo.commits_ahead_behind(parent, branch).unwrap_or((0, 0))
+                self.repo
+                    .commits_ahead_behind(parent, branch)
+                    .unwrap_or((0, 0))
             } else {
                 (0, 0)
             }
@@ -468,7 +469,7 @@ impl App {
         // Build the linear stack chain from trunk to the deepest descendant
         // that contains our selected branch
         let chain = self.build_stack_chain(&branch.name);
-        
+
         if chain.len() < 2 {
             self.set_status("Stack too small to reorder");
             return false;
@@ -500,7 +501,7 @@ impl App {
         // First, find the root of this stack (direct child of trunk)
         let mut ancestors = vec![branch_name.to_string()];
         let mut current = branch_name.to_string();
-        
+
         while let Some(info) = self.stack.branches.get(&current) {
             if let Some(parent) = &info.parent {
                 if *parent == self.stack.trunk {
@@ -512,14 +513,14 @@ impl App {
                 break;
             }
         }
-        
+
         // ancestors now contains [branch, ..., stack_root] - reverse it
         ancestors.reverse();
-        
+
         // Now build the full chain from stack_root down through the selected branch
         // and continue to any single-child descendants
         let mut chain = Vec::new();
-        
+
         // Add all ancestors including the selected branch
         let mut prev_parent = self.stack.trunk.clone();
         for ancestor in &ancestors {
@@ -529,7 +530,7 @@ impl App {
             });
             prev_parent = ancestor.clone();
         }
-        
+
         // Continue down to descendants (only if linear - single child)
         let mut current = branch_name.to_string();
         while let Some(info) = self.stack.branches.get(&current) {
@@ -544,7 +545,7 @@ impl App {
                 break; // Stop at branches with multiple children or no children
             }
         }
-        
+
         chain
     }
 
@@ -554,25 +555,25 @@ impl App {
             if state.moving_index > 0 {
                 // Swap positions: branch at moving_index moves up
                 let i = state.moving_index;
-                
+
                 // Get the parent of the branch we're swapping with
                 let new_parent = state.pending_chain[i - 1].parent.clone();
                 let moving_branch = state.pending_chain[i].name.clone();
                 let displaced_branch = state.pending_chain[i - 1].name.clone();
-                
+
                 // Update parents for the swap
                 state.pending_chain[i - 1].parent = moving_branch.clone();
                 state.pending_chain[i].parent = new_parent;
-                
+
                 // Update parent of branch after the displaced one (if any)
                 if i + 1 < state.pending_chain.len() {
                     state.pending_chain[i + 1].parent = displaced_branch.clone();
                 }
-                
+
                 // Swap the entries
                 state.pending_chain.swap(i, i - 1);
                 state.moving_index -= 1;
-                
+
                 self.update_reorder_preview();
             }
         }
@@ -584,25 +585,25 @@ impl App {
             if state.moving_index < state.pending_chain.len() - 1 {
                 // Swap positions: branch at moving_index moves down
                 let i = state.moving_index;
-                
+
                 // Get info for the swap
                 let moving_branch = state.pending_chain[i].name.clone();
                 let displaced_branch = state.pending_chain[i + 1].name.clone();
                 let moving_parent = state.pending_chain[i].parent.clone();
-                
+
                 // Update parents for the swap
                 state.pending_chain[i].parent = displaced_branch.clone();
                 state.pending_chain[i + 1].parent = moving_parent;
-                
+
                 // Update parent of branch after the moving one (if any)
                 if i + 2 < state.pending_chain.len() {
                     state.pending_chain[i + 2].parent = moving_branch.clone();
                 }
-                
+
                 // Swap the entries
                 state.pending_chain.swap(i, i + 1);
                 state.moving_index += 1;
-                
+
                 self.update_reorder_preview();
             }
         }
@@ -624,7 +625,7 @@ impl App {
         };
 
         let mut ops = Vec::new();
-        
+
         // Compare original and pending chains to find what needs reparenting
         for pending in &state.pending_chain {
             // Find this branch in the original chain
@@ -634,7 +635,7 @@ impl App {
                 }
             }
         }
-        
+
         ops
     }
 
@@ -651,16 +652,18 @@ impl App {
         // For each branch that needs reparenting, show its commits
         for entry in &state.pending_chain {
             // Find original parent
-            let original_parent = state.original_chain
+            let original_parent = state
+                .original_chain
                 .iter()
                 .find(|e| e.name == entry.name)
                 .map(|e| e.parent.clone());
-            
+
             // If parent changed, this branch needs rebasing
             if original_parent.as_ref() != Some(&entry.parent) {
                 // Get commits that will be rebased (using current parent)
                 if let Some(orig_parent) = &original_parent {
-                    let commits = self.repo
+                    let commits = self
+                        .repo
                         .commits_between(orig_parent, &entry.name)
                         .unwrap_or_default();
 
@@ -669,7 +672,9 @@ impl App {
                     }
 
                     // Check for potential conflicts with new parent
-                    if let Ok(conflict_files) = self.repo.check_rebase_conflicts(&entry.name, &entry.parent) {
+                    if let Ok(conflict_files) =
+                        self.repo.check_rebase_conflicts(&entry.name, &entry.parent)
+                    {
                         for file in conflict_files {
                             potential_conflicts.push(ConflictInfo {
                                 file,

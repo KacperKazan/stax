@@ -66,7 +66,11 @@ pub fn run(all: bool, r#continue: bool, quiet: bool) -> Result<()> {
         return Ok(());
     }
 
-    let branch_word = if branches_to_restack.len() == 1 { "branch" } else { "branches" };
+    let branch_word = if branches_to_restack.len() == 1 {
+        "branch"
+    } else {
+        "branches"
+    };
     if !quiet {
         println!(
             "Restacking {} {}...",
@@ -81,7 +85,11 @@ pub fn run(all: bool, r#continue: bool, quiet: bool) -> Result<()> {
     let summary = PlanSummary {
         branches_to_rebase: branches_to_restack.len(),
         branches_to_push: 0,
-        description: vec![format!("Restack {} {}", branches_to_restack.len(), branch_word)],
+        description: vec![format!(
+            "Restack {} {}",
+            branches_to_restack.len(),
+            branch_word
+        )],
     };
     tx::print_plan(tx.kind(), &summary, quiet);
     tx.set_plan_summary(summary);
@@ -97,7 +105,11 @@ pub fn run(all: bool, r#continue: bool, quiet: bool) -> Result<()> {
         };
 
         if !quiet {
-            println!("  {} onto {}", branch.white(), meta.parent_branch_name.blue());
+            println!(
+                "  {} onto {}",
+                branch.white(),
+                meta.parent_branch_name.blue()
+            );
         }
 
         // Checkout the branch
@@ -113,10 +125,10 @@ pub fn run(all: bool, r#continue: bool, quiet: bool) -> Result<()> {
                     ..meta
                 };
                 updated_meta.write(repo.inner(), branch)?;
-                
+
                 // Record the after-OID for this branch
                 tx.record_after(&repo, branch)?;
-                
+
                 if !quiet {
                     println!("    {}", "✓ done".green());
                 }
@@ -134,14 +146,10 @@ pub fn run(all: bool, r#continue: bool, quiet: bool) -> Result<()> {
                     println!("{}", "Stash kept to avoid conflicts.".yellow());
                 }
                 summary.push((branch.clone(), "conflict".to_string()));
-                
+
                 // Finish transaction with error
-                tx.finish_err(
-                    "Rebase conflict",
-                    Some("rebase"),
-                    Some(branch),
-                )?;
-                
+                tx.finish_err("Rebase conflict", Some("rebase"), Some(branch))?;
+
                 return Ok(());
             }
         }
@@ -195,7 +203,16 @@ fn cleanup_merged_branches(repo: &GitRepo, quiet: bool) -> Result<()> {
     println!();
     println!(
         "{}",
-        format!("Found {} merged {}:", merged.len(), if merged.len() == 1 { "branch" } else { "branches" }).dimmed()
+        format!(
+            "Found {} merged {}:",
+            merged.len(),
+            if merged.len() == 1 {
+                "branch"
+            } else {
+                "branches"
+            }
+        )
+        .dimmed()
     );
 
     for branch in &merged {
@@ -211,9 +228,17 @@ fn cleanup_merged_branches(repo: &GitRepo, quiet: bool) -> Result<()> {
             // Delete metadata if it exists
             let _ = BranchMetadata::delete(repo.inner(), branch);
 
-            println!("  {} {}", "✓".green(), format!("Deleted {}", branch).dimmed());
+            println!(
+                "  {} {}",
+                "✓".green(),
+                format!("Deleted {}", branch).dimmed()
+            );
         } else {
-            println!("  {} {}", "○".dimmed(), format!("Skipped {}", branch).dimmed());
+            println!(
+                "  {} {}",
+                "○".dimmed(),
+                format!("Skipped {}", branch).dimmed()
+            );
         }
     }
 

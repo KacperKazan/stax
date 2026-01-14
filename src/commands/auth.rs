@@ -26,7 +26,11 @@ pub fn run(token: Option<String>) -> Result<()> {
     println!("{}", "✓ GitHub token saved!".green());
     println!(
         "Credentials stored at: {}",
-        Config::dir()?.join(".credentials").display().to_string().dimmed()
+        Config::dir()?
+            .join(".credentials")
+            .display()
+            .to_string()
+            .dimmed()
     );
     println!();
     println!(

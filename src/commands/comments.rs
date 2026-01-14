@@ -75,12 +75,7 @@ fn print_comment(comment: &PrComment, plain: bool) {
 
     match comment {
         PrComment::Issue(c) => {
-            println!(
-                "{} {} {}",
-                "●".blue(),
-                c.user.cyan(),
-                timestamp.dimmed()
-            );
+            println!("{} {} {}", "●".blue(), c.user.cyan(), timestamp.dimmed());
             print_body(&c.body, plain);
         }
         PrComment::Review(c) => {

@@ -2,8 +2,8 @@
 
 use crate::config::Config;
 use crate::git::GitRepo;
-use crate::ops::receipt::{OpReceipt, OpStatus};
 use crate::ops;
+use crate::ops::receipt::{OpReceipt, OpStatus};
 use anyhow::{Context, Result};
 use colored::Colorize;
 use dialoguer::{theme::ColorfulTheme, Confirm};
@@ -11,21 +11,21 @@ use dialoguer::{theme::ColorfulTheme, Confirm};
 pub fn run(op_id: Option<String>, yes: bool, no_push: bool, quiet: bool) -> Result<()> {
     let repo = GitRepo::open()?;
     let git_dir = repo.git_dir()?;
-    
+
     // Load the receipt
     let receipt = match op_id {
         Some(id) => OpReceipt::load(git_dir, &id)?,
         None => OpReceipt::load_latest(git_dir)?
             .context("No operations to undo. Run a stax command first.")?,
     };
-    
+
     if !receipt.can_undo() {
         anyhow::bail!(
             "Operation {} cannot be undone (no refs with before-OIDs)",
             receipt.op_id
         );
     }
-    
+
     if !quiet {
         println!("{}", "Undoing operation...".bold());
         println!(
@@ -44,7 +44,7 @@ pub fn run(op_id: Option<String>, yes: bool, no_push: bool, quiet: bool) -> Resu
             }
         );
     }
-    
+
     // Check for rebase in progress
     if repo.rebase_in_progress()? {
         if !quiet {
@@ -52,13 +52,13 @@ pub fn run(op_id: Option<String>, yes: bool, no_push: bool, quiet: bool) -> Resu
         }
         repo.rebase_abort()?;
     }
-    
+
     // Check for dirty working tree
     if repo.is_dirty()? {
         if quiet {
             anyhow::bail!("Working tree is dirty. Please stash or commit changes first.");
         }
-        
+
         let stash = if yes {
             true
         } else {
@@ -67,7 +67,7 @@ pub fn run(op_id: Option<String>, yes: bool, no_push: bool, quiet: bool) -> Resu
                 .default(true)
                 .interact()?
         };
-        
+
         if stash {
             repo.stash_push()?;
             if !quiet {
@@ -77,26 +77,31 @@ pub fn run(op_id: Option<String>, yes: bool, no_push: bool, quiet: bool) -> Resu
             anyhow::bail!("Cannot undo with dirty working tree");
         }
     }
-    
+
     // Restore local refs
     let mut restored_count = 0;
     let head_branch_before = receipt.head_branch_before.clone();
-    
+
     if !quiet {
         println!();
         println!("{}", "Restoring local refs...".bold());
     }
-    
+
     for entry in &receipt.local_refs {
         if let Some(oid_before) = &entry.oid_before {
             if !quiet {
-                print!("  {} {} → {}... ", "▸".dimmed(), entry.branch.cyan(), &oid_before[..10]);
+                print!(
+                    "  {} {} → {}... ",
+                    "▸".dimmed(),
+                    entry.branch.cyan(),
+                    &oid_before[..10]
+                );
                 std::io::Write::flush(&mut std::io::stdout()).ok();
             }
-            
+
             // Update the ref to the before-OID
             repo.update_ref(&entry.refname, oid_before)?;
-            
+
             if !quiet {
                 println!("{}", "done".green());
             }
@@ -112,30 +117,44 @@ pub fn run(op_id: Option<String>, yes: bool, no_push: bool, quiet: bool) -> Resu
             }
         }
     }
-    
+
     // If the head branch was modified, reset the working tree
-    if receipt.local_refs.iter().any(|r| r.branch == head_branch_before) {
+    if receipt
+        .local_refs
+        .iter()
+        .any(|r| r.branch == head_branch_before)
+    {
         if !quiet {
-            println!("  {} Resetting working tree to {}...", "▸".dimmed(), head_branch_before.cyan());
+            println!(
+                "  {} Resetting working tree to {}...",
+                "▸".dimmed(),
+                head_branch_before.cyan()
+            );
         }
-        
+
         // Make sure we're on that branch
         repo.checkout(&head_branch_before)?;
-        
+
         // Reset to the restored ref
-        if let Some(entry) = receipt.local_refs.iter().find(|r| r.branch == head_branch_before) {
+        if let Some(entry) = receipt
+            .local_refs
+            .iter()
+            .find(|r| r.branch == head_branch_before)
+        {
             if let Some(oid_before) = &entry.oid_before {
                 repo.reset_hard(oid_before)?;
             }
         }
     }
-    
+
     // Handle remote refs
     if receipt.has_remote_changes() && !no_push {
-        let remote_count = receipt.remote_refs.iter()
+        let remote_count = receipt
+            .remote_refs
+            .iter()
             .filter(|r| r.oid_before.is_some())
             .count();
-        
+
         if remote_count > 0 {
             if !quiet {
                 println!();
@@ -144,11 +163,16 @@ pub fn run(op_id: Option<String>, yes: bool, no_push: bool, quiet: bool) -> Resu
                     format!(
                         "This operation force-pushed {} {} to remote.",
                         remote_count,
-                        if remote_count == 1 { "branch" } else { "branches" }
-                    ).yellow()
+                        if remote_count == 1 {
+                            "branch"
+                        } else {
+                            "branches"
+                        }
+                    )
+                    .yellow()
                 );
             }
-            
+
             let push = if yes {
                 true
             } else if quiet {
@@ -159,7 +183,7 @@ pub fn run(op_id: Option<String>, yes: bool, no_push: bool, quiet: bool) -> Resu
                     .default(false)
                     .interact()?
             };
-            
+
             if push {
                 restore_remote_refs(&repo, &receipt, quiet)?;
             } else if !quiet {
@@ -167,18 +191,28 @@ pub fn run(op_id: Option<String>, yes: bool, no_push: bool, quiet: bool) -> Resu
             }
         }
     }
-    
+
     // Clean up backup refs for this operation
     ops::delete_backup_refs(&repo, &receipt.op_id)?;
-    
+
     if !quiet {
         println!();
         println!(
             "{}",
-            format!("✓ Undone! Restored {} {}.", restored_count, if restored_count == 1 { "branch" } else { "branches" }).green().bold()
+            format!(
+                "✓ Undone! Restored {} {}.",
+                restored_count,
+                if restored_count == 1 {
+                    "branch"
+                } else {
+                    "branches"
+                }
+            )
+            .green()
+            .bold()
         );
     }
-    
+
     Ok(())
 }
 
@@ -186,12 +220,12 @@ pub fn run(op_id: Option<String>, yes: bool, no_push: bool, quiet: bool) -> Resu
 fn restore_remote_refs(repo: &GitRepo, receipt: &OpReceipt, quiet: bool) -> Result<()> {
     let config = Config::load()?;
     let remote_name = config.remote_name();
-    
+
     if !quiet {
         println!();
         println!("{}", "Restoring remote refs...".bold());
     }
-    
+
     for entry in &receipt.remote_refs {
         if let Some(oid_before) = &entry.oid_before {
             if !quiet {
@@ -204,21 +238,21 @@ fn restore_remote_refs(repo: &GitRepo, receipt: &OpReceipt, quiet: bool) -> Resu
                 );
                 std::io::Write::flush(&mut std::io::stdout()).ok();
             }
-            
+
             // First, update the local ref to the before-OID, then force push
             let local_refname = format!("refs/heads/{}", entry.branch);
-            
+
             // Temporarily set the branch to the old OID
             repo.update_ref(&local_refname, oid_before)?;
-            
+
             // Force push
             let result = repo.force_push(remote_name, &entry.branch);
-            
+
             // Restore the branch to its current local state (from oid_after or oid_before)
             if let Some(oid_after) = &entry.oid_after {
                 let _ = repo.update_ref(&local_refname, oid_after);
             }
-            
+
             match result {
                 Ok(()) => {
                     if !quiet {
@@ -233,7 +267,6 @@ fn restore_remote_refs(repo: &GitRepo, receipt: &OpReceipt, quiet: bool) -> Resu
             }
         }
     }
-    
+
     Ok(())
 }
-

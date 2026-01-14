@@ -52,7 +52,12 @@ pub fn run(message: Option<String>, quiet: bool) -> Result<()> {
         if message.is_some() {
             println!("{} {}", "Amended".green(), current.cyan());
         } else {
-            println!("{} {} {}", "Amended".green(), current.cyan(), "(keeping message)".dimmed());
+            println!(
+                "{} {} {}",
+                "Amended".green(),
+                current.cyan(),
+                "(keeping message)".dimmed()
+            );
         }
     }
 

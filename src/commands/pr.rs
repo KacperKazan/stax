@@ -41,10 +41,7 @@ pub fn run() -> Result<()> {
     // Open in default browser
     #[cfg(target_os = "macos")]
     {
-        std::process::Command::new("open")
-            .arg(&pr_url)
-            .spawn()
-            .ok();
+        std::process::Command::new("open").arg(&pr_url).spawn().ok();
     }
 
     #[cfg(target_os = "linux")]

@@ -51,7 +51,7 @@ fn test_sync_alias_rs() {
     assert!(output.status.success());
     let stdout = String::from_utf8_lossy(&output.stdout);
     assert!(stdout.contains("restack")); // --restack option
-    assert!(stdout.contains("delete"));  // --no-delete option
+    assert!(stdout.contains("delete")); // --no-delete option
     assert!(stdout.contains("safe"));
     assert!(stdout.contains("continue"));
 }
@@ -223,7 +223,7 @@ fn fp_parity_bc_branch_create() {
     assert!(output.status.success());
     let stdout = String::from_utf8_lossy(&output.stdout);
     assert!(stdout.contains("message")); // -m flag
-    assert!(stdout.contains("from"));    // --from flag
+    assert!(stdout.contains("from")); // --from flag
 }
 
 #[test]
@@ -574,8 +574,11 @@ fn test_rename_push_flag_help() {
     let output = stax(&["rename", "--help"]);
     assert!(output.status.success());
     let stdout = String::from_utf8_lossy(&output.stdout);
-    assert!(stdout.contains("--push") || stdout.contains("-p"),
-        "Expected --push flag in rename help: {}", stdout);
+    assert!(
+        stdout.contains("--push") || stdout.contains("-p"),
+        "Expected --push flag in rename help: {}",
+        stdout
+    );
 }
 
 #[test]
@@ -583,8 +586,11 @@ fn test_branch_rename_push_flag_help() {
     let output = stax(&["branch", "rename", "--help"]);
     assert!(output.status.success());
     let stdout = String::from_utf8_lossy(&output.stdout);
-    assert!(stdout.contains("--push") || stdout.contains("-p"),
-        "Expected --push flag in branch rename help: {}", stdout);
+    assert!(
+        stdout.contains("--push") || stdout.contains("-p"),
+        "Expected --push flag in branch rename help: {}",
+        stdout
+    );
 }
 
 // ============================================================================
@@ -596,8 +602,11 @@ fn test_ci_command_help() {
     let output = stax(&["ci", "--help"]);
     assert!(output.status.success());
     let stdout = String::from_utf8_lossy(&output.stdout);
-    assert!(stdout.contains("CI") || stdout.contains("status"),
-        "Expected CI-related help text: {}", stdout);
+    assert!(
+        stdout.contains("CI") || stdout.contains("status"),
+        "Expected CI-related help text: {}",
+        stdout
+    );
 }
 
 #[test]
@@ -606,6 +615,14 @@ fn test_ci_command_flags() {
     assert!(output.status.success());
     let stdout = String::from_utf8_lossy(&output.stdout);
     assert!(stdout.contains("--all"), "Expected --all flag: {}", stdout);
-    assert!(stdout.contains("--json"), "Expected --json flag: {}", stdout);
-    assert!(stdout.contains("--refresh"), "Expected --refresh flag: {}", stdout);
+    assert!(
+        stdout.contains("--json"),
+        "Expected --json flag: {}",
+        stdout
+    );
+    assert!(
+        stdout.contains("--refresh"),
+        "Expected --refresh flag: {}",
+        stdout
+    );
 }

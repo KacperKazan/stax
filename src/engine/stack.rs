@@ -163,7 +163,8 @@ impl Stack {
             Some(p) => p,
             None => {
                 // Parent not in stack - find other branches with same parent
-                let mut siblings: Vec<String> = self.branches
+                let mut siblings: Vec<String> = self
+                    .branches
                     .values()
                     .filter(|b| b.parent.as_ref() == Some(&parent.to_string()))
                     .map(|b| b.name.clone())
@@ -303,7 +304,10 @@ mod tests {
         let stack = create_test_stack();
         let mut descendants = stack.descendants("main");
         descendants.sort();
-        assert_eq!(descendants, vec!["feature-a", "feature-a-1", "feature-a-2", "feature-b"]);
+        assert_eq!(
+            descendants,
+            vec!["feature-a", "feature-a-1", "feature-a-2", "feature-b"]
+        );
     }
 
     #[test]
@@ -332,14 +336,20 @@ mod tests {
     fn test_current_stack_from_leaf() {
         let stack = create_test_stack();
         let current = stack.current_stack("feature-a-2");
-        assert_eq!(current, vec!["main", "feature-a", "feature-a-1", "feature-a-2"]);
+        assert_eq!(
+            current,
+            vec!["main", "feature-a", "feature-a-1", "feature-a-2"]
+        );
     }
 
     #[test]
     fn test_current_stack_from_middle() {
         let stack = create_test_stack();
         let current = stack.current_stack("feature-a-1");
-        assert_eq!(current, vec!["main", "feature-a", "feature-a-1", "feature-a-2"]);
+        assert_eq!(
+            current,
+            vec!["main", "feature-a", "feature-a-1", "feature-a-2"]
+        );
     }
 
     #[test]

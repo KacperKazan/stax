@@ -32,9 +32,11 @@ pub fn render(f: &mut Frame, app: &App) {
 
     render_stack_tree(f, app, left_chunks[0]);
     render_details(f, app, left_chunks[1]);
-    
+
     // Show reorder preview panel in reorder mode, otherwise show diff
-    if matches!(app.mode, Mode::Reorder) || matches!(app.mode, Mode::Confirm(ConfirmAction::ApplyReorder)) {
+    if matches!(app.mode, Mode::Reorder)
+        || matches!(app.mode, Mode::Confirm(ConfirmAction::ApplyReorder))
+    {
         render_reorder_preview(f, app, main_chunks[1]);
     } else {
         render_diff(f, app, main_chunks[1]);
@@ -57,7 +59,9 @@ fn render_status_bar(f: &mut Frame, app: &App, area: Rect) {
     let content: Line = if let Some(msg) = &app.status_message {
         Line::from(Span::styled(
             msg.clone(),
-            Style::default().fg(Color::Yellow).add_modifier(Modifier::BOLD),
+            Style::default()
+                .fg(Color::Yellow)
+                .add_modifier(Modifier::BOLD),
         ))
     } else {
         match app.mode {
@@ -139,8 +143,7 @@ fn render_status_bar(f: &mut Frame, app: &App, area: Rect) {
         }
     };
 
-    let paragraph = Paragraph::new(content)
-        .block(Block::default().borders(Borders::ALL));
+    let paragraph = Paragraph::new(content).block(Block::default().borders(Borders::ALL));
 
     f.render_widget(paragraph, area);
 }
@@ -280,7 +283,12 @@ fn render_input_modal(f: &mut Frame, action: &InputAction, input: &str, cursor: 
         Line::from(vec![
             Span::styled("> ", Style::default().fg(Color::Cyan)),
             Span::styled(before, Style::default().fg(Color::White)),
-            Span::styled("│", Style::default().fg(Color::Cyan).add_modifier(Modifier::SLOW_BLINK)),
+            Span::styled(
+                "│",
+                Style::default()
+                    .fg(Color::Cyan)
+                    .add_modifier(Modifier::SLOW_BLINK),
+            ),
             Span::styled(after, Style::default().fg(Color::White)),
         ]),
         Line::from(""),

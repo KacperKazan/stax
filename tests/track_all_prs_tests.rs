@@ -109,11 +109,16 @@ fn test_track_single_branch_still_works() {
 
     // Verify it's now tracked
     let json = repo.get_status_json();
-    let branches = json["branches"].as_array().expect("Expected branches array");
+    let branches = json["branches"]
+        .as_array()
+        .expect("Expected branches array");
     let tracked = branches
         .iter()
         .any(|b| b["name"].as_str() == Some("untracked-feature"));
-    assert!(tracked, "Branch should be tracked after running track command");
+    assert!(
+        tracked,
+        "Branch should be tracked after running track command"
+    );
 
     // Verify parent is correct
     let feature = branches
@@ -136,7 +141,10 @@ fn test_track_already_tracked_branch() {
     repo.create_stack(&["tracked-feature"]);
 
     // Go back to that branch
-    repo.run_stax(&["checkout", &repo.find_branch_containing("tracked-feature").unwrap()]);
+    repo.run_stax(&[
+        "checkout",
+        &repo.find_branch_containing("tracked-feature").unwrap(),
+    ]);
 
     // Try to track it again (should fail gracefully)
     let output = repo.run_stax(&["branch", "track", "--parent", "main"]);

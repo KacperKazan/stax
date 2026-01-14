@@ -148,7 +148,11 @@ pub fn run(
         } else {
             // Try reset to remote
             let reset_output = Command::new("git")
-                .args(["reset", "--hard", &format!("{}/{}", remote_name, stack.trunk)])
+                .args([
+                    "reset",
+                    "--hard",
+                    &format!("{}/{}", remote_name, stack.trunk),
+                ])
                 .current_dir(workdir)
                 .output()
                 .context("Failed to reset trunk")?;
@@ -206,18 +210,17 @@ pub fn run(
         let github_client: Option<(tokio::runtime::Runtime, GitHubClient)> = {
             let remote_info = RemoteInfo::from_repo(&repo, &config).ok();
             let has_github_token = Config::github_token().is_some();
-            
+
             if has_github_token {
                 if let Some(info) = remote_info {
-                    tokio::runtime::Runtime::new()
-                        .ok()
-                        .and_then(|rt| {
-                            // Must create client inside block_on - Octocrab requires runtime context
-                            rt.block_on(async {
-                                GitHubClient::new(info.owner(), &info.repo, info.api_base_url.clone()).ok()
-                            })
-                            .map(|client| (rt, client))
+                    tokio::runtime::Runtime::new().ok().and_then(|rt| {
+                        // Must create client inside block_on - Octocrab requires runtime context
+                        rt.block_on(async {
+                            GitHubClient::new(info.owner(), &info.repo, info.api_base_url.clone())
+                                .ok()
                         })
+                        .map(|client| (rt, client))
+                    })
                 } else {
                     None
                 }
@@ -228,8 +231,16 @@ pub fn run(
 
         if !merged.is_empty() {
             if !quiet {
-                let branch_word = if merged.len() == 1 { "branch" } else { "branches" };
-                println!("  Found {} merged {}:", merged.len().to_string().cyan(), branch_word);
+                let branch_word = if merged.len() == 1 {
+                    "branch"
+                } else {
+                    "branches"
+                };
+                println!(
+                    "  Found {} merged {}:",
+                    merged.len().to_string().cyan(),
+                    branch_word
+                );
                 for branch in &merged {
                     println!("    {} {}", "▸".bright_black(), branch);
                 }
@@ -247,11 +258,7 @@ pub fn run(
                     .unwrap_or_else(|| stack.trunk.clone());
 
                 let prompt = if is_current_branch {
-                    format!(
-                        "Delete '{}' and checkout '{}'?",
-                        branch,
-                        parent_branch
-                    )
+                    format!("Delete '{}' and checkout '{}'?", branch, parent_branch)
                 } else {
                     format!("Delete '{}'?", branch)
                 };
@@ -279,11 +286,7 @@ pub fn run(
 
                         if checkout_status.map(|s| s.success()).unwrap_or(false) {
                             if !quiet {
-                                println!(
-                                    "    {} checked out {}",
-                                    "→".cyan(),
-                                    parent_branch.cyan()
-                                );
+                                println!("    {} checked out {}", "→".cyan(), parent_branch.cyan());
                             }
 
                             // Pull latest changes for the parent branch
@@ -336,7 +339,9 @@ pub fn run(
                             // Update PR base on GitHub if this branch has a PR
                             if let Some(pr_info) = &child_meta.pr_info {
                                 if let Some((rt, client)) = &github_client {
-                                    match rt.block_on(client.update_pr_base(pr_info.number, &parent_branch)) {
+                                    match rt.block_on(
+                                        client.update_pr_base(pr_info.number, &parent_branch),
+                                    ) {
                                         Ok(()) => {
                                             if !quiet {
                                                 println!(
@@ -453,7 +458,15 @@ pub fn run(
             let summary = PlanSummary {
                 branches_to_rebase: needs_restack.len(),
                 branches_to_push: 0,
-                description: vec![format!("Sync restack {} {}", needs_restack.len(), if needs_restack.len() == 1 { "branch" } else { "branches" })],
+                description: vec![format!(
+                    "Sync restack {} {}",
+                    needs_restack.len(),
+                    if needs_restack.len() == 1 {
+                        "branch"
+                    } else {
+                        "branches"
+                    }
+                )],
             };
             tx::print_plan(tx.kind(), &summary, quiet);
             tx.set_plan_summary(summary);
@@ -481,10 +494,10 @@ pub fn run(
                             ..meta
                         };
                         updated_meta.write(repo.inner(), branch)?;
-                        
+
                         // Record after-OID
                         tx.record_after(&repo, branch)?;
-                        
+
                         if !quiet {
                             println!("{}", "done".green());
                         }
@@ -501,14 +514,10 @@ pub fn run(
                             println!("{}", "Stash kept to avoid conflicts.".yellow());
                         }
                         summary.push((branch.clone(), "conflict".to_string()));
-                        
+
                         // Finish transaction with error
-                        tx.finish_err(
-                            "Rebase conflict",
-                            Some("restack"),
-                            Some(branch),
-                        )?;
-                        
+                        tx.finish_err("Rebase conflict", Some("restack"), Some(branch))?;
+
                         return Ok(());
                     }
                 }
@@ -733,7 +742,11 @@ fn refresh_ci_cache(
     };
 
     let client = match rt.block_on(async {
-        GitHubClient::new(remote_info.owner(), &remote_info.repo, remote_info.api_base_url.clone())
+        GitHubClient::new(
+            remote_info.owner(),
+            &remote_info.repo,
+            remote_info.api_base_url.clone(),
+        )
     }) {
         Ok(client) => client,
         Err(_) => return,

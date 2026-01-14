@@ -7,11 +7,11 @@
 #![allow(unused_imports)]
 
 // Internal modules needed by github module
-mod config;
-mod remote;
 mod cache;
+mod config;
 mod engine;
 mod git;
+mod remote;
 
 // Expose github module for tests
 pub mod github;

@@ -85,7 +85,8 @@ pub fn run(json: bool, all: bool, hours: i64) -> Result<()> {
     let recent_pushes = get_recent_pushes(&repo, &branches_to_show, hours);
 
     // Build needs attention section
-    let needs_attention = build_needs_attention(&repo, &stack, &branches_to_show, &reviews_received);
+    let needs_attention =
+        build_needs_attention(&repo, &stack, &branches_to_show, &reviews_received);
 
     if json {
         let output = StandupJson {
@@ -146,10 +147,7 @@ pub fn run(json: bool, all: bool, hours: i64) -> Result<()> {
         format!("last {} hours", hours)
     };
 
-    println!(
-        "{}",
-        format!("Standup Summary ({})", period).bold()
-    );
+    println!("{}", format!("Standup Summary ({})", period).bold());
     println!("{}", "─".repeat(40).dimmed());
     println!();
 
@@ -213,11 +211,18 @@ pub fn run(json: bool, all: bool, hours: i64) -> Result<()> {
     }
 
     // Recent pushes
-    let pushes_with_activity: Vec<_> = recent_pushes.iter().filter(|p| p.commit_count > 0).collect();
+    let pushes_with_activity: Vec<_> = recent_pushes
+        .iter()
+        .filter(|p| p.commit_count > 0)
+        .collect();
     if !pushes_with_activity.is_empty() {
         println!("{}", "Pushed".yellow().bold());
         for push in &pushes_with_activity {
-            let commit_word = if push.commit_count == 1 { "commit" } else { "commits" };
+            let commit_word = if push.commit_count == 1 {
+                "commit"
+            } else {
+                "commits"
+            };
             println!(
                 "   {} {} {} to {} ({})",
                 "•".yellow(),
@@ -239,7 +244,11 @@ pub fn run(json: bool, all: bool, hours: i64) -> Result<()> {
         println!("{}", "Needs Attention".red().bold());
 
         for branch in &needs_attention.prs_with_requested_changes {
-            println!("   {} PR on {} has requested changes", "•".red(), branch.cyan());
+            println!(
+                "   {} PR on {} has requested changes",
+                "•".red(),
+                branch.cyan()
+            );
         }
 
         for branch in &needs_attention.ci_failing {
@@ -260,10 +269,7 @@ pub fn run(json: bool, all: bool, hours: i64) -> Result<()> {
         && pushes_with_activity.is_empty()
         && !has_attention
     {
-        println!(
-            "{}",
-            "No activity in the last {} hours.".dimmed()
-        );
+        println!("{}", "No activity in the last {} hours.".dimmed());
         println!();
     }
 
@@ -273,7 +279,12 @@ pub fn run(json: bool, all: bool, hours: i64) -> Result<()> {
 fn fetch_github_activity(
     remote_info: &Option<RemoteInfo>,
     hours: i64,
-) -> (Vec<PrActivity>, Vec<PrActivity>, Vec<ReviewActivity>, Vec<ReviewActivity>) {
+) -> (
+    Vec<PrActivity>,
+    Vec<PrActivity>,
+    Vec<ReviewActivity>,
+    Vec<ReviewActivity>,
+) {
     let Some(remote) = remote_info else {
         return (vec![], vec![], vec![], vec![]);
     };
@@ -364,11 +375,7 @@ fn build_needs_attention(
         .filter_map(|r| {
             // Find the branch for this PR
             branches.iter().find(|b| {
-                stack
-                    .branches
-                    .get(*b)
-                    .and_then(|info| info.pr_number)
-                    == Some(r.pr_number)
+                stack.branches.get(*b).and_then(|info| info.pr_number) == Some(r.pr_number)
             })
         })
         .cloned()
