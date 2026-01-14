@@ -1,4 +1,4 @@
-use anyhow::Result;
+use anyhow::{Context, Result};
 use std::fs;
 use std::path::Path;
 
@@ -10,7 +10,7 @@ pub struct PrTemplate {
     pub name: String,
     /// Full file path
     pub path: std::path::PathBuf,
-    /// Template content (loaded lazily in real usage, but eager in tests)
+    /// Template content
     pub content: String,
 }
 
@@ -29,7 +29,8 @@ pub fn discover_pr_templates(workdir: &Path) -> Result<Vec<PrTemplate>> {
     // Check directory first (multiple templates)
     let template_dir = workdir.join(".github/PULL_REQUEST_TEMPLATE");
     if template_dir.is_dir() {
-        let mut entries: Vec<_> = fs::read_dir(&template_dir)?
+        let mut entries: Vec<_> = fs::read_dir(&template_dir)
+            .context("Failed to read PR template directory")?
             .filter_map(|entry| entry.ok())
             .filter(|entry| {
                 entry
@@ -50,7 +51,8 @@ pub fn discover_pr_templates(workdir: &Path) -> Result<Vec<PrTemplate>> {
                 .unwrap_or("template")
                 .to_string();
 
-            let content = fs::read_to_string(&path)?;
+            let content = fs::read_to_string(&path)
+                .context(format!("Failed to read PR template: {}", path.display()))?;
 
             templates.push(PrTemplate {
                 name,
@@ -75,7 +77,8 @@ pub fn discover_pr_templates(workdir: &Path) -> Result<Vec<PrTemplate>> {
     for candidate in &single_template_candidates {
         let path = workdir.join(candidate);
         if path.is_file() {
-            let content = fs::read_to_string(&path)?;
+            let content = fs::read_to_string(&path)
+                .context(format!("Failed to read PR template: {}", path.display()))?;
             templates.push(PrTemplate {
                 name: "Default".to_string(),
                 path,
