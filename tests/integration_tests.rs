@@ -1346,11 +1346,16 @@ fn test_multiple_stacks() {
     repo.run_stax(&["t"]);
     repo.run_stax(&["bc", "stack2-feature"]);
 
-    // Both should appear in status with --all flag
-    // (default now shows only current stack)
-    let output = repo.run_stax(&["status", "--all", "--json"]);
+    // Both should appear in status (shows all stacks by default)
+    let output = repo.run_stax(&["status", "--json"]);
+    assert!(
+        output.status.success(),
+        "Status failed: {}",
+        TestRepo::stderr(&output)
+    );
+
     let stdout = TestRepo::stdout(&output);
-    let json: Value = serde_json::from_str(&stdout).unwrap();
+    let json: Value = serde_json::from_str(&stdout).expect("Invalid JSON");
     let branches = json["branches"].as_array().unwrap();
 
     assert!(
@@ -1957,28 +1962,27 @@ fn test_status_all_shows_all_stacks() {
     repo.create_file("b.txt", "content b");
     repo.commit("Stack B commit");
 
-    // Without --all, should only show current stack (stack-b)
-    let output = repo.run_stax(&["status"]);
+    // With --current, should only show current stack (stack-b)
+    let output = repo.run_stax(&["status", "--current"]);
     assert!(output.status.success());
     let stdout = TestRepo::stdout(&output);
     assert!(
         stdout.contains("stack-b-feature"),
         "Should show current stack"
     );
-    // stack-a might not be shown without --all
 
-    // With --all, should show both stacks
-    let output = repo.run_stax(&["status", "--all"]);
+    // Without --current (default), should show both stacks
+    let output = repo.run_stax(&["status"]);
     assert!(output.status.success());
     let stdout = TestRepo::stdout(&output);
     assert!(
         stdout.contains("stack-a-feature"),
-        "Should show stack A with --all: {}",
+        "Should show stack A by default: {}",
         stdout
     );
     assert!(
         stdout.contains("stack-b-feature"),
-        "Should show stack B with --all: {}",
+        "Should show stack B by default: {}",
         stdout
     );
 }
@@ -1992,8 +1996,8 @@ fn test_status_all_json_output() {
     repo.run_stax(&["t"]);
     repo.run_stax(&["bc", "stack-2"]);
 
-    // With --all --json, should show all branches
-    let output = repo.run_stax(&["status", "--all", "--json"]);
+    // Default status with --json should show all branches
+    let output = repo.run_stax(&["status", "--json"]);
     assert!(output.status.success());
 
     let stdout = TestRepo::stdout(&output);
@@ -2005,13 +2009,13 @@ fn test_status_all_json_output() {
         branches
             .iter()
             .any(|b| b["name"].as_str().unwrap_or("").contains("stack-1")),
-        "Expected stack-1 in --all output"
+        "Expected stack-1 in output"
     );
     assert!(
         branches
             .iter()
             .any(|b| b["name"].as_str().unwrap_or("").contains("stack-2")),
-        "Expected stack-2 in --all output"
+        "Expected stack-2 in output"
     );
 }
 

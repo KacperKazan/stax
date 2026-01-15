@@ -560,7 +560,7 @@ fn test_ll_command_flags() {
     let stdout = String::from_utf8_lossy(&output.stdout);
     assert!(stdout.contains("--json"));
     assert!(stdout.contains("--stack"));
-    assert!(stdout.contains("--all"));
+    assert!(stdout.contains("--current"));
     assert!(stdout.contains("--compact"));
     assert!(stdout.contains("--quiet"));
 }
