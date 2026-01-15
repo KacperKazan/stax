@@ -295,7 +295,7 @@ pub fn run(
 
         // Remote indicator
         if has_remote {
-            info_str.push_str(&format!("{} ", "☁".bright_blue()));
+            info_str.push_str(&format!("{} ", "☁️".bright_blue()));
         }
 
         // Branch name
@@ -396,7 +396,7 @@ pub fn run(
     let mut trunk_info_str = String::new();
     trunk_info_str.push(' ');
     if remote_branches.contains(&stack.trunk) {
-        trunk_info_str.push_str(&format!("{} ", "☁".bright_blue()));
+        trunk_info_str.push_str(&format!("{} ", "☁️".bright_blue()));
     }
     if is_trunk_current {
         trunk_info_str.push_str(&format!("{}", stack.trunk.bold()));

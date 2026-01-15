@@ -300,9 +300,9 @@ pub fn run(
 
         // Show cloud icon or space for alignment
         if has_remote {
-            info_str.push_str(&format!("{} ", "☁".bright_blue()));
+            info_str.push_str(&format!("{} ", "☁️".bright_blue()));
         } else {
-            info_str.push_str("  "); // Space for alignment when no remote
+            info_str.push_str("   "); // Space for alignment when no remote (emoji is 2 cells wide)
         }
 
         // Color branch names to match their column in the graph
@@ -403,9 +403,9 @@ pub fn run(
     trunk_info.push(' '); // Space after tree (same as branches)
                           // Show cloud icon or space for alignment
     if remote_branches.contains(&stack.trunk) {
-        trunk_info.push_str(&format!("{} ", "☁".bright_blue()));
+        trunk_info.push_str(&format!("{} ", "☁️".bright_blue()));
     } else {
-        trunk_info.push_str("  "); // Space for alignment when no remote
+        trunk_info.push_str("   "); // Space for alignment when no remote (emoji is 2 cells wide)
     }
     // Color trunk name to match column 0
     if is_trunk_current {
