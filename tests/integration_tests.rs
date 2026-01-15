@@ -2810,6 +2810,159 @@ fn test_sync_preserves_branch_with_remote() {
     );
 }
 
+#[test]
+fn test_sync_updates_trunk_after_branch_deletion_checkout() {
+    // This test verifies the fix for the issue where trunk update would fail
+    // when on a merged branch because the trunk update happened BEFORE branch
+    // deletion, but we end up on trunk AFTER deletion.
+    let repo = TestRepo::new_with_remote();
+
+    // Create a feature branch
+    repo.run_stax(&["bc", "feature-trunk-update-order"]);
+    let branch_name = repo.current_branch();
+    repo.create_file("feature.txt", "feature content");
+    repo.commit("Feature commit");
+    repo.git(&["push", "-u", "origin", &branch_name]);
+
+    // Merge branch into main on remote (simulates PR merge)
+    // This makes it detectable via `git branch --merged`
+    repo.merge_branch_on_remote(&branch_name);
+
+    // Add additional commit to main on remote after merge
+    // This ensures main has commits we need to pull
+    repo.simulate_remote_commit(
+        "remote-main-update.txt",
+        "content from remote",
+        "Remote main update after merge",
+    );
+
+    // Verify we're still on the feature branch locally
+    assert!(repo.current_branch().contains("feature-trunk-update-order"));
+
+    // Sync should:
+    // 1. Detect the branch as merged (commits are in main)
+    // 2. Delete it and checkout main
+    // 3. THEN update main successfully (using git pull since we're now on it)
+    let output = repo.run_stax(&["sync", "--force"]);
+    assert!(
+        output.status.success(),
+        "Sync failed: {}",
+        TestRepo::stderr(&output)
+    );
+
+    let stdout = TestRepo::stdout(&output);
+
+    // Should NOT show "failed (may need manual update)" for trunk update
+    // because trunk update now happens AFTER we checkout to main
+    assert!(
+        !stdout.contains("failed (may need manual update)"),
+        "Trunk update should not fail when we end up on trunk after branch deletion. Got:\n{}",
+        stdout
+    );
+
+    // Should show trunk update succeeded
+    assert!(
+        stdout.contains("Updating main"),
+        "Expected trunk update message. Got:\n{}",
+        stdout
+    );
+
+    // Should be on main after sync
+    assert_eq!(
+        repo.current_branch(),
+        "main",
+        "Should be on main after sync deletes the feature branch"
+    );
+
+    // Main should have the remote update (trunk was pulled correctly)
+    assert!(
+        repo.path().join("remote-main-update.txt").exists(),
+        "Expected main to have the remote update after sync"
+    );
+}
+
+#[test]
+fn test_sync_trunk_update_order_with_diverged_main() {
+    // Test that trunk update works correctly even when local main had been
+    // behind remote. The reordering ensures we use `git pull` when on trunk.
+    let repo = TestRepo::new_with_remote();
+
+    // Create feature branch and push
+    repo.run_stax(&["bc", "feature-diverged-main"]);
+    let branch_name = repo.current_branch();
+    repo.create_file("feature.txt", "feature work");
+    repo.commit("Feature work");
+    repo.git(&["push", "-u", "origin", &branch_name]);
+
+    // Merge branch into main on remote (simulates PR merge)
+    repo.merge_branch_on_remote(&branch_name);
+
+    // Add multiple commits to remote main after merge
+    repo.simulate_remote_commit("update1.txt", "update 1", "Remote update 1");
+    repo.simulate_remote_commit("update2.txt", "update 2", "Remote update 2");
+
+    // Stay on feature branch locally
+    assert!(repo.current_branch().contains("feature-diverged-main"));
+
+    // Run sync - should detect branch as merged, delete it, checkout main, then update main
+    let output = repo.run_stax(&["sync", "--force"]);
+    assert!(
+        output.status.success(),
+        "Sync failed: {}",
+        TestRepo::stderr(&output)
+    );
+
+    let stdout = TestRepo::stdout(&output);
+
+    // Verify successful trunk update (no failure message)
+    assert!(
+        !stdout.contains("failed"),
+        "Should not see any failed messages. Got:\n{}",
+        stdout
+    );
+
+    // Should be on main with all remote updates
+    assert_eq!(repo.current_branch(), "main");
+    assert!(repo.path().join("update1.txt").exists());
+    assert!(repo.path().join("update2.txt").exists());
+}
+
+#[test]
+fn test_sync_trunk_update_when_not_on_merged_branch() {
+    // Verify that trunk update still works correctly when NOT on a merged branch
+    // (i.e., the normal case where we use git fetch refspec)
+    let repo = TestRepo::new_with_remote();
+
+    // Create and stay on a feature branch that won't be deleted
+    repo.run_stax(&["bc", "active-feature"]);
+    let branch_name = repo.current_branch();
+    repo.create_file("active.txt", "active work");
+    repo.commit("Active work");
+    repo.git(&["push", "-u", "origin", &branch_name]);
+
+    // Add commit to remote main
+    repo.simulate_remote_commit("main-update.txt", "main update", "Main update");
+
+    // Run sync (feature branch is NOT merged, so we won't switch to main)
+    let output = repo.run_stax(&["sync", "--force"]);
+    assert!(
+        output.status.success(),
+        "Sync failed: {}",
+        TestRepo::stderr(&output)
+    );
+
+    // Should still be on the feature branch (not deleted)
+    assert!(repo.current_branch().contains("active-feature"));
+
+    // Trunk should be updated via fetch refspec
+    // Go to main and verify it has the update
+    repo.git(&["checkout", "main"]);
+    assert!(
+        repo.path().join("main-update.txt").exists(),
+        "Main should have been updated via fetch refspec"
+    );
+}
+
 // =============================================================================
 // Merge Command Tests
 // =============================================================================

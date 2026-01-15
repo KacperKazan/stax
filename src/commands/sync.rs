@@ -104,17 +104,19 @@ pub fn run(
         }
     }
 
-    // 2. Update trunk branch
-    if !quiet {
-        print!("  Updating {}... ", stack.trunk.cyan());
-        let _ = std::io::stdout().flush();
-    }
-
-    // Check if we're on trunk
+    // 2. Update trunk branch (before merged branch detection, so detection works correctly)
+    // Note: If we're not on trunk, we use a refspec fetch which may fail if local trunk
+    // has diverged. This is fine - we'll retry after branch deletions if we end up on trunk.
     let was_on_trunk = current == stack.trunk;
+    let mut trunk_update_deferred = false;
 
     if was_on_trunk {
-        // Pull directly
+        // We're on trunk - pull directly
+        if !quiet {
+            print!("  Updating {}... ", stack.trunk.cyan());
+            let _ = std::io::stdout().flush();
+        }
+
         let output = Command::new("git")
             .args(["pull", "--ff-only", &remote_name, &stack.trunk])
             .current_dir(workdir)
@@ -174,7 +176,13 @@ pub fn run(
             }
         }
     } else {
-        // Update trunk without switching to it
+        // Not on trunk - try to update via refspec fetch (may fail, that's ok)
+        // We'll update trunk properly later if we end up on it after branch deletions
+        if !quiet {
+            print!("  Updating {}... ", stack.trunk.cyan());
+            let _ = std::io::stdout().flush();
+        }
+
         let output = Command::new("git")
             .args([
                 "fetch",
@@ -185,19 +193,15 @@ pub fn run(
             .output()
             .context("Failed to update trunk")?;
 
-        if !quiet {
-            if output.status.success() {
+        if output.status.success() {
+            if !quiet {
                 println!("{}", "done".green());
-            } else {
-                println!("{}", "failed (may need manual update)".yellow());
-                if verbose {
-                    let stderr = String::from_utf8_lossy(&output.stderr);
-                    if !stderr.trim().is_empty() {
-                        for line in stderr.lines() {
-                            println!("    {}", line.dimmed());
-                        }
-                    }
-                }
+            }
+        } else {
+            // Defer trunk update - we'll retry after branch deletions if we end up on trunk
+            trunk_update_deferred = true;
+            if !quiet {
+                println!("{}", "deferred".dimmed());
             }
         }
     }
@@ -438,6 +442,77 @@ pub fn run(
         }
     }
 
+    // Re-check current branch since it may have changed during branch deletion
+    let current_after_deletions = repo.current_branch()?;
+
+    // If we deferred trunk update (refspec fetch failed while not on trunk) and we're
+    // now on trunk after branch deletions, retry with git pull which is more reliable
+    if trunk_update_deferred && current_after_deletions == stack.trunk {
+        if !quiet {
+            print!("  Updating {}... ", stack.trunk.cyan());
+            let _ = std::io::stdout().flush();
+        }
+
+        let output = Command::new("git")
+            .args(["pull", "--ff-only", &remote_name, &stack.trunk])
+            .current_dir(workdir)
+            .output()
+            .context("Failed to pull trunk")?;
+
+        if output.status.success() {
+            if !quiet {
+                println!("{}", "done".green());
+                if verbose {
+                    let stdout = String::from_utf8_lossy(&output.stdout);
+                    if !stdout.trim().is_empty() {
+                        for line in stdout.lines() {
+                            println!("    {}", line.dimmed());
+                        }
+                    }
+                }
+            }
+        } else if safe {
+            if !quiet {
+                println!("{}", "failed (safe mode, no reset)".yellow());
+                if verbose {
+                    let stderr = String::from_utf8_lossy(&output.stderr);
+                    if !stderr.trim().is_empty() {
+                        for line in stderr.lines() {
+                            println!("    {}", line.dimmed());
+                        }
+                    }
+                }
+            }
+        } else {
+            // Try reset to remote
+            let reset_output = Command::new("git")
+                .args([
+                    "reset",
+                    "--hard",
+                    &format!("{}/{}", remote_name, stack.trunk),
+                ])
+                .current_dir(workdir)
+                .output()
+                .context("Failed to reset trunk")?;
+
+            if !quiet {
+                if reset_output.status.success() {
+                    println!("{}", "reset to remote".yellow());
+                } else {
+                    println!("{}", "failed".red());
+                    if verbose {
+                        let stderr = String::from_utf8_lossy(&reset_output.stderr);
+                        if !stderr.trim().is_empty() {
+                            for line in stderr.lines() {
+                                println!("    {}", line.dimmed());
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+
     // 4. Optionally restack
     if restack {
         if !quiet {
@@ -523,7 +598,7 @@ pub fn run(
                 }
             }
 
-            repo.checkout(&current)?;
+            repo.checkout(&current_after_deletions)?;
 
             // Finish transaction successfully
             tx.finish_ok()?;
