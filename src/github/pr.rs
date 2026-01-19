@@ -262,11 +262,13 @@ struct ReviewNode {
 impl GitHubClient {
     /// Find existing PR for a branch
     pub async fn find_pr(&self, branch: &str) -> Result<Option<PrInfo>> {
+        // For branches in the same repository, use just the branch name
+        // Format "owner:branch" is only for PRs from forks
         let prs = self
             .octocrab
             .pulls(&self.owner, &self.repo)
             .list()
-            .head(format!("{}:{}", self.owner, branch))
+            .head(branch.to_string())
             .sort(Sort::Created)
             .send()
             .await
