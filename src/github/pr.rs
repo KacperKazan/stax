@@ -267,39 +267,50 @@ impl GitHubClient {
     /// 1. The PR is in OPEN state (not closed or merged)
     /// 2. The PR's head branch exactly matches the requested branch name
     ///
-    /// This validation is critical because the GitHub API's head filter can be
-    /// unreliable (e.g., with long branch names or URL encoding issues), which
-    /// could otherwise cause stax to update the wrong PR.
+    /// Note: We don't use the GitHub API's `head` filter because it's unreliable
+    /// with long branch names or special characters. Instead, we list open PRs
+    /// and filter manually, with pagination support for repos with many PRs.
     pub async fn find_pr(&self, branch: &str) -> Result<Option<PrInfo>> {
-        // For branches in the same repository, use just the branch name
-        // Format "owner:branch" is only for PRs from forks
-        let prs = self
-            .octocrab
-            .pulls(&self.owner, &self.repo)
-            .list()
-            .state(State::Open) // Only search open PRs
-            .head(branch.to_string())
-            .sort(Sort::Created)
-            .send()
-            .await
-            .context("Failed to list PRs")?;
+        // List open PRs without using the unreliable `head` filter
+        // Use pagination to handle repos with many open PRs efficiently
+        let mut page = 1u32;
+        const PER_PAGE: u8 = 100;
 
-        // Validate that the returned PR's head branch actually matches
-        // the requested branch. The API's head filter can fail silently,
-        // returning unrelated PRs.
-        for pr in prs.items {
-            if pr.head.ref_field == branch {
-                return Ok(Some(PrInfo {
-                    number: pr.number,
-                    state: pr
-                        .state
-                        .as_ref()
-                        .map(|s| format!("{:?}", s))
-                        .unwrap_or_default(),
-                    is_draft: pr.draft.unwrap_or(false),
-                    base: pr.base.ref_field.clone(),
-                }));
+        loop {
+            let prs = self
+                .octocrab
+                .pulls(&self.owner, &self.repo)
+                .list()
+                .state(State::Open)
+                .per_page(PER_PAGE)
+                .page(page)
+                .sort(Sort::Created)
+                .send()
+                .await
+                .context("Failed to list PRs")?;
+
+            // Find the PR with matching head branch in this page
+            for pr in &prs.items {
+                if pr.head.ref_field == branch {
+                    return Ok(Some(PrInfo {
+                        number: pr.number,
+                        state: pr
+                            .state
+                            .as_ref()
+                            .map(|s| format!("{:?}", s))
+                            .unwrap_or_default(),
+                        is_draft: pr.draft.unwrap_or(false),
+                        base: pr.base.ref_field.clone(),
+                    }));
+                }
             }
+
+            // If we got fewer items than requested, we've reached the last page
+            if (prs.items.len() as u8) < PER_PAGE {
+                break;
+            }
+
+            page += 1;
         }
 
         Ok(None) // No matching open PR found
