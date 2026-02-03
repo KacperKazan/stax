@@ -1,6 +1,7 @@
 use crate::engine::Stack;
 use crate::git::{refs, GitRepo};
 use anyhow::Result;
+use crossterm::terminal;
 use dialoguer::{theme::ColorfulTheme, FuzzySelect};
 
 struct RowData {
@@ -259,6 +260,7 @@ fn format_checkout_rows(rows: &[RowData]) -> Vec<CheckoutRow> {
     let mut stack_width = 0;
     let mut delta_width = 0;
     let mut pr_width = 0;
+    let max_width = terminal_width().saturating_sub(1);
     let mut columns: Vec<(String, String, String, String, String)> = Vec::new();
 
     for row in rows {
@@ -295,6 +297,7 @@ fn format_checkout_rows(rows: &[RowData]) -> Vec<CheckoutRow> {
                 pad_to_width(&delta_text, delta_width),
                 pad_to_width(&pr_text, pr_width),
             );
+            let display = truncate_display(&display, max_width);
             CheckoutRow {
                 branch: branch_name,
                 display,
@@ -314,6 +317,39 @@ fn pad_to_width(text: &str, width: usize) -> String {
 
 fn display_width(s: &str) -> usize {
     s.chars().map(char_width).sum()
+}
+
+fn truncate_display(text: &str, max_width: usize) -> String {
+    if max_width == 0 {
+        return String::new();
+    }
+    if display_width(text) <= max_width {
+        return text.to_string();
+    }
+    if max_width <= 3 {
+        return ".".repeat(max_width);
+    }
+
+    let mut out = String::new();
+    let mut used = 0;
+    let limit = max_width - 3;
+    for ch in text.chars() {
+        let w = char_width(ch);
+        if used + w > limit {
+            break;
+        }
+        out.push(ch);
+        used += w;
+    }
+    out.push_str("...");
+    out
+}
+
+fn terminal_width() -> usize {
+    terminal::size()
+        .map(|(cols, _)| cols as usize)
+        .unwrap_or(120)
+        .max(20)
 }
 
 fn char_width(c: char) -> usize {
@@ -425,5 +461,13 @@ mod tests {
         let rows = build_checkout_row_data(&stack, "auth-ui", |_p, _b| Some((0, 0)));
         let names: Vec<_> = rows.iter().map(|r| r.branch.as_str()).collect();
         assert_eq!(names, vec!["auth", "auth-api", "auth-ui", "hotfix", "main"]);
+    }
+
+    #[test]
+    fn test_truncate_display_caps_width() {
+        let text = "• very-very-long-branch-name  stack  +12/-3  #123 ⟳";
+        let truncated = truncate_display(text, 16);
+        assert!(display_width(&truncated) <= 16);
+        assert!(truncated.ends_with("..."));
     }
 }
