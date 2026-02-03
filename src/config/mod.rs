@@ -268,6 +268,15 @@ impl Config {
 mod tests {
     use super::*;
     use std::env;
+    use std::sync::{Mutex, OnceLock};
+
+    fn env_lock() -> std::sync::MutexGuard<'static, ()> {
+        static ENV_LOCK: OnceLock<Mutex<()>> = OnceLock::new();
+        ENV_LOCK
+            .get_or_init(|| Mutex::new(()))
+            .lock()
+            .expect("ENV lock poisoned")
+    }
 
     #[test]
     fn test_default_config() {
@@ -465,6 +474,7 @@ prefix = "test/"
 
     #[test]
     fn test_set_github_token_writes_to_file() {
+        let _env_guard = env_lock();
         // Save original HOME
         let orig_home = env::var("HOME").ok();
 
@@ -509,6 +519,7 @@ prefix = "test/"
 
     #[test]
     fn test_github_token_reads_from_credentials_file() {
+        let _env_guard = env_lock();
         // Save original values
         let orig_home = env::var("HOME").ok();
         let orig_stax = env::var("STAX_GITHUB_TOKEN").ok();
@@ -549,6 +560,7 @@ prefix = "test/"
 
     #[test]
     fn test_github_token_roundtrip() {
+        let _env_guard = env_lock();
         // Save original HOME
         let orig_home = env::var("HOME").ok();
 
@@ -583,6 +595,7 @@ prefix = "test/"
 
     #[test]
     fn test_github_token_env_takes_priority_over_file() {
+        let _env_guard = env_lock();
         // Save original values
         let orig_home = env::var("HOME").ok();
         let orig_stax = env::var("STAX_GITHUB_TOKEN").ok();
@@ -625,6 +638,7 @@ prefix = "test/"
 
     #[test]
     fn test_github_token_trims_whitespace_from_file() {
+        let _env_guard = env_lock();
         // Save original values
         let orig_home = env::var("HOME").ok();
         let orig_stax = env::var("STAX_GITHUB_TOKEN").ok();
