@@ -1,10 +1,17 @@
 use anyhow::{Context, Result};
 use git2::{BranchType, Repository};
+use serde::Deserialize;
 use std::path::Path;
 use std::process::Command;
 
 pub struct GitRepo {
     repo: Repository,
+}
+
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct BranchParentMetadata {
+    parent_branch_name: String,
 }
 
 impl GitRepo {
@@ -314,27 +321,40 @@ impl GitRepo {
         if force {
             branch.delete()?;
         } else {
-            // Check if merged first
-            let trunk = self.trunk_branch()?;
-            let trunk_commit = self
-                .repo
-                .find_branch(&trunk, BranchType::Local)?
-                .get()
-                .peel_to_commit()?;
             let branch_commit = branch.get().peel_to_commit()?;
+            let mut candidate_bases = vec![self.trunk_branch()?];
 
-            if self
-                .repo
-                .merge_base(trunk_commit.id(), branch_commit.id())?
-                == branch_commit.id()
-            {
-                branch.delete()?;
-            } else {
+            if let Ok(Some(json)) = crate::git::refs::read_metadata(&self.repo, name) {
+                if let Ok(meta) = serde_json::from_str::<BranchParentMetadata>(&json) {
+                    if meta.parent_branch_name != name
+                        && !candidate_bases.contains(&meta.parent_branch_name)
+                    {
+                        candidate_bases.insert(0, meta.parent_branch_name);
+                    }
+                }
+            }
+
+            let merged_into_any_base = candidate_bases.into_iter().any(|base| {
+                let Ok(base_branch) = self.repo.find_branch(&base, BranchType::Local) else {
+                    return false;
+                };
+                let Ok(base_commit) = base_branch.get().peel_to_commit() else {
+                    return false;
+                };
+                self.repo
+                    .merge_base(base_commit.id(), branch_commit.id())
+                    .map(|base_oid| base_oid == branch_commit.id())
+                    .unwrap_or(false)
+            });
+
+            if !merged_into_any_base {
                 anyhow::bail!(
                     "Branch '{}' is not merged. Use --force to delete anyway.",
                     name
                 );
             }
+
+            branch.delete()?;
         }
         Ok(())
     }
@@ -758,6 +778,25 @@ fn format_duration(seconds: i64) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::fs;
+    use std::path::Path;
+    use std::process::Command;
+    use tempfile::TempDir;
+
+    fn run_git(path: &Path, args: &[&str]) {
+        let output = Command::new("git")
+            .args(args)
+            .current_dir(path)
+            .output()
+            .expect("failed to run git");
+        assert!(
+            output.status.success(),
+            "git {:?} failed\nstdout: {}\nstderr: {}",
+            args,
+            String::from_utf8_lossy(&output.stdout),
+            String::from_utf8_lossy(&output.stderr)
+        );
+    }
 
     #[test]
     fn test_format_duration_just_now() {
@@ -825,5 +864,42 @@ mod tests {
         let debug_str = format!("{:?}", commit);
         assert!(debug_str.contains("abc123"));
         assert!(debug_str.contains("Test commit"));
+    }
+
+    #[test]
+    fn test_delete_branch_non_force_allows_empty_branch_merged_into_parent() {
+        let dir = TempDir::new().expect("tempdir");
+        let path = dir.path();
+
+        run_git(path, &["init", "-b", "main"]);
+        run_git(path, &["config", "user.email", "test@example.com"]);
+        run_git(path, &["config", "user.name", "Test User"]);
+
+        fs::write(path.join("README.md"), "# repo\n").expect("write readme");
+        run_git(path, &["add", "README.md"]);
+        run_git(path, &["commit", "-m", "Initial commit"]);
+
+        run_git(path, &["checkout", "-b", "parent"]);
+        fs::write(path.join("parent.txt"), "parent change\n").expect("write parent");
+        run_git(path, &["add", "parent.txt"]);
+        run_git(path, &["commit", "-m", "Parent commit"]);
+
+        run_git(path, &["checkout", "-b", "child"]);
+        run_git(path, &["checkout", "parent"]);
+
+        let repo = GitRepo {
+            repo: Repository::open(path).expect("open repo"),
+        };
+
+        crate::git::refs::write_metadata(
+            &repo.repo,
+            "child",
+            r#"{"parentBranchName":"parent","parentBranchRevision":"ignored"}"#,
+        )
+        .expect("write metadata");
+
+        repo.delete_branch("child", false)
+            .expect("delete should succeed without force");
+        assert!(repo.repo.find_branch("child", BranchType::Local).is_err());
     }
 }

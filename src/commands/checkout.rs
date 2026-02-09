@@ -101,18 +101,14 @@ pub fn run(branch: Option<String>, trunk: bool, parent: bool, child: Option<usiz
                 let branch_names: Vec<String> = rows.iter().map(|r| r.branch.clone()).collect();
 
                 let mut theme = ColorfulTheme::default();
-                theme.active_item_style = console::Style::new()
-                    .for_stderr()
-                    .black()
-                    .on_white()
-                    .bold();
+                theme.active_item_style =
+                    console::Style::new().for_stderr().black().on_white().bold();
                 theme.active_item_prefix = console::style("▶".to_string())
                     .for_stderr()
                     .black()
                     .on_white()
                     .bold();
-                theme.inactive_item_prefix =
-                    console::style(" ".to_string()).for_stderr();
+                theme.inactive_item_prefix = console::style(" ".to_string()).for_stderr();
 
                 let term = console::Term::stderr();
                 if term.is_term() {
@@ -311,7 +307,10 @@ fn build_checkout_rows(stack: &Stack, repo: &GitRepo, current: &str) -> Result<V
     }
 
     let (ahead, behind) = repo
-        .commits_ahead_behind(&format!("{}/{}", config.remote_name(), stack.trunk), &stack.trunk)
+        .commits_ahead_behind(
+            &format!("{}/{}", config.remote_name(), stack.trunk),
+            &stack.trunk,
+        )
         .unwrap_or((0, 0));
     if ahead > 0 || behind > 0 {
         if behind > 0 {
