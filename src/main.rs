@@ -519,6 +519,13 @@ enum BranchCommands {
         all_prs: bool,
     },
 
+    /// Stop tracking a branch (remove stax metadata only)
+    #[command(visible_alias = "ut")]
+    Untrack {
+        /// Branch to untrack (defaults to current branch)
+        branch: Option<String>,
+    },
+
     /// Change the parent of a tracked branch
     Reparent {
         /// Branch to reparent (defaults to current)
@@ -829,6 +836,7 @@ fn main() -> Result<()> {
             BranchCommands::Track { parent, all_prs } => {
                 commands::branch::track::run(parent, all_prs)
             }
+            BranchCommands::Untrack { branch } => commands::branch::untrack::run(branch),
             BranchCommands::Reparent { branch, parent } => {
                 commands::branch::reparent::run(branch, parent)
             }

@@ -254,10 +254,28 @@ fn test_status_long() {
 fn test_branch_untrack() {
     let repo = TestRepo::new();
     repo.create_stack(&["tracked"]);
+    let branch = repo.current_branch();
 
-    let output = repo.run_stax(&["branch", "untrack"]);
-    // Should handle untracking
-    let _ = output;
+    // Ensure metadata exists before untrack.
+    let metadata_ref = format!("refs/branch-metadata/{}", branch);
+    let before = repo.git(&["show", &metadata_ref]);
+    assert!(
+        before.status.success(),
+        "Expected metadata ref to exist before untrack"
+    );
+
+    let output = repo.run_stax(&["branch", "untrack", &branch]);
+    output.assert_success();
+
+    // Git branch should remain.
+    assert!(repo.list_branches().contains(&branch));
+
+    // Metadata should be removed.
+    let after = repo.git(&["show", &metadata_ref]);
+    assert!(
+        !after.status.success(),
+        "Expected metadata ref to be removed after untrack"
+    );
 }
 
 // =============================================================================

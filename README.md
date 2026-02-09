@@ -711,6 +711,7 @@ stax submit --edit             # Force editor open
 | `stax rename` | `b r` | Rename branch and optionally edit commit message |
 | `stax branch track` | | Track an existing branch |
 | `stax branch track --all-prs` | | Track all your open PRs |
+| `stax branch untrack` | `ut` | Remove stax metadata for a branch (keep git branch) |
 | `stax branch reparent` | | Change parent of a branch |
 | `stax branch delete` | | Delete a branch |
 | `stax branch fold` | | Fold branch into parent |

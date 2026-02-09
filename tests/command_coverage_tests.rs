@@ -564,6 +564,14 @@ fn test_branch_track_help() {
     output.assert_success();
 }
 
+#[test]
+fn test_branch_untrack_help() {
+    let repo = TestRepo::new();
+
+    let output = repo.run_stax(&["branch", "untrack", "--help"]);
+    output.assert_success();
+}
+
 // =============================================================================
 // Branch Squash Tests
 // =============================================================================

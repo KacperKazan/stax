@@ -72,6 +72,7 @@ fn test_branch_subcommands() {
     let stdout = String::from_utf8_lossy(&output.stdout);
     assert!(stdout.contains("create"));
     assert!(stdout.contains("track"));
+    assert!(stdout.contains("untrack"));
     assert!(stdout.contains("delete"));
     assert!(stdout.contains("reparent"));
     assert!(stdout.contains("fold"));
@@ -295,6 +296,7 @@ fn fp_parity_b_branch() {
     assert!(stdout.contains("create"));
     assert!(stdout.contains("checkout"));
     assert!(stdout.contains("track"));
+    assert!(stdout.contains("untrack"));
     assert!(stdout.contains("delete"));
 }
 

@@ -81,6 +81,7 @@ stax m -m "new msg"   # Amend with new message
 ```bash
 stax branch track --parent main     # Track existing branch
 stax branch track --all-prs         # Import all your open PRs
+stax branch untrack <name>          # Remove stax metadata only
 stax branch reparent --parent new   # Change parent
 stax branch delete <name>           # Delete branch
 stax branch rename <name>           # Rename current branch

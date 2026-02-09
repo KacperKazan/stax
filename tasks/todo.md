@@ -1,12 +1,14 @@
 # Plan
-- [x] Reproduce and codify the `branch delete` non-force failure for an empty child branch whose parent is ahead of trunk.
-- [x] Update non-force deletion safety logic to accept branches merged into tracked parent (not only trunk), with trunk fallback.
-- [x] Add regression test coverage for: empty child branch deletes without `--force` when merged into tracked parent.
-- [x] Run targeted test suite covering branch delete paths and validate no regressions.
-- [x] Document review results and behavior change summary.
+- [x] Add `branch untrack` command wiring in CLI (`BranchCommands`, dispatch, and module exports).
+- [x] Implement `/Users/cesarferreira/code/github/stax/src/commands/branch/untrack.rs` to remove only stax metadata for target branch (default: current).
+- [x] Add/upgrade tests to verify untrack removes metadata while keeping the Git branch.
+- [x] Run targeted tests for untrack and branch help/coverage.
+- [x] Document review summary.
 
 # Review
-- [x] Updated `/Users/cesarferreira/code/github/stax/src/git/repo.rs` non-force deletion logic to consider tracked parent merge status first, then trunk fallback.
-- [x] Added regression unit test in `/Users/cesarferreira/code/github/stax/src/git/repo.rs` covering empty child branch deletion when parent is ahead of trunk.
-- [x] Verified branch delete coverage with `cargo test test_delete_branch_non_force_allows_empty_branch_merged_into_parent -- --nocapture` and `cargo test test_branch_delete -- --nocapture`.
-- [x] Note: command-level non-force confirmation is interactive; regression is validated at `GitRepo::delete_branch` layer where merge safety decision is made.
+- [x] Added new CLI subcommand `stax branch untrack [branch]` (alias: `ut`) and wired dispatch in `/Users/cesarferreira/code/github/stax/src/main.rs`.
+- [x] Added command module export in `/Users/cesarferreira/code/github/stax/src/commands/branch/mod.rs` and new implementation in `/Users/cesarferreira/code/github/stax/src/commands/branch/untrack.rs`.
+- [x] Upgraded `/Users/cesarferreira/code/github/stax/tests/additional_coverage_tests.rs` `test_branch_untrack` to assert metadata deletion and branch retention.
+- [x] Updated help/coverage checks in `/Users/cesarferreira/code/github/stax/tests/cli_tests.rs` and `/Users/cesarferreira/code/github/stax/tests/command_coverage_tests.rs`.
+- [x] Updated docs references in `/Users/cesarferreira/code/github/stax/README.md` and `/Users/cesarferreira/code/github/stax/skills.md`.
+- [x] Validation commands run: `cargo fmt`; `cargo test test_branch_untrack -- --nocapture`; `cargo test test_branch_subcommands -- --nocapture`; `cargo test test_branch_untrack_help -- --nocapture`; `cargo test fp_parity_b_branch -- --nocapture`.
