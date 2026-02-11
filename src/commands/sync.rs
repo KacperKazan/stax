@@ -526,23 +526,42 @@ pub fn run(
             println!("{}", "Restacking...".bold());
         }
 
-        let needs_restack = stack.needs_restack();
+        // Scope restacking to the stack we started on, even if sync switched branches
+        // (for example, if the current branch was deleted after merge).
+        let scope_order: Vec<String> = if current != stack.trunk && stack.branches.contains_key(&current) {
+            stack.current_stack(&current)
+        } else {
+            Vec::new()
+        };
+        // Reload stack to use fresh metadata after sync/deletion steps.
+        let restack_stack = Stack::load(&repo)?;
+        let branches_to_restack: Vec<String> = scope_order
+            .into_iter()
+            .filter(|branch| {
+                restack_stack
+                    .branches
+                    .get(branch)
+                    .map(|br| br.needs_restack)
+                    .unwrap_or(false)
+            })
+            .collect();
 
-        if needs_restack.is_empty() {
+        if branches_to_restack.is_empty() {
             if !quiet {
                 println!("  {}", "All branches up to date.".dimmed());
             }
         } else {
             // Begin transaction for restack phase
             let mut tx = Transaction::begin(OpKind::SyncRestack, &repo, quiet)?;
-            tx.plan_branches(&repo, &needs_restack)?;
+            tx.plan_branches(&repo, &branches_to_restack)?;
+            let restack_count = branches_to_restack.len();
             let summary = PlanSummary {
-                branches_to_rebase: needs_restack.len(),
+                branches_to_rebase: restack_count,
                 branches_to_push: 0,
                 description: vec![format!(
                     "Sync restack {} {}",
-                    needs_restack.len(),
-                    if needs_restack.len() == 1 {
+                    restack_count,
+                    if restack_count == 1 {
                         "branch"
                     } else {
                         "branches"
@@ -555,7 +574,7 @@ pub fn run(
 
             let mut summary: Vec<(String, String)> = Vec::new();
 
-            for branch in &needs_restack {
+            for branch in &branches_to_restack {
                 if !quiet {
                     print!("  Restacking {}... ", branch.cyan());
                 }

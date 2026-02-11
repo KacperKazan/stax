@@ -1621,6 +1621,72 @@ fn test_sync_with_restack_flag() {
 }
 
 #[test]
+fn test_sync_restack_only_targets_current_stack() {
+    let repo = TestRepo::new_with_remote();
+
+    // Stack A: main -> a1 -> a2
+    repo.run_stax(&["bc", "stack-a1"]);
+    let a1 = repo.current_branch();
+    repo.create_file("a1.txt", "a1");
+    repo.commit("a1 commit");
+
+    repo.run_stax(&["bc", "stack-a2"]);
+    let a2 = repo.current_branch();
+    repo.create_file("a2.txt", "a2");
+    repo.commit("a2 commit");
+
+    // Stack B: main -> b1
+    repo.run_stax(&["t"]);
+    repo.run_stax(&["bc", "stack-b1"]);
+    let b1 = repo.current_branch();
+    repo.create_file("b1.txt", "b1");
+    repo.commit("b1 commit");
+
+    // Move trunk forward so both a1 and b1 need restack.
+    repo.run_stax(&["t"]);
+    repo.create_file("main.txt", "main change");
+    repo.commit("main commit");
+
+    // Run sync --restack from stack A tip; only stack A should be restacked.
+    repo.run_stax(&["checkout", &a2]);
+    let b1_before = repo.get_commit_sha(&b1);
+
+    let output = repo.run_stax(&["sync", "--restack", "--force"]);
+    assert!(
+        output.status.success(),
+        "Failed: {}",
+        TestRepo::stderr(&output)
+    );
+
+    let b1_after = repo.get_commit_sha(&b1);
+    assert_eq!(
+        b1_before, b1_after,
+        "Expected unrelated stack branch to remain untouched by sync --restack"
+    );
+
+    // Ensure this test really exercised the regression precondition.
+    let status_output = repo.run_stax(&["status", "--json"]);
+    assert!(
+        status_output.status.success(),
+        "Failed: {}",
+        TestRepo::stderr(&status_output)
+    );
+    let status_json: Value =
+        serde_json::from_str(&TestRepo::stdout(&status_output)).expect("Invalid JSON");
+    let branches = status_json["branches"]
+        .as_array()
+        .expect("Expected branches array");
+    let b1_entry = branches
+        .iter()
+        .find(|b| b["name"].as_str().unwrap_or("") == b1)
+        .expect("Expected b1 in status");
+    assert_eq!(b1_entry["needs_restack"], Value::Bool(true));
+
+    // Keep variables used for clarity around stack topology assertions.
+    assert!(!a1.is_empty());
+}
+
+#[test]
 fn test_sync_deletes_merged_branches() {
     let repo = TestRepo::new_with_remote();
 
