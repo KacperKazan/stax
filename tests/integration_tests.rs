@@ -3338,6 +3338,49 @@ fn test_sync_trunk_update_when_not_on_merged_branch() {
     );
 }
 
+#[test]
+fn test_sync_detects_merged_branch_when_local_trunk_diverged() {
+    // Regression: when local trunk diverges and we're not on trunk, sync may fail
+    // to update local trunk before merged-branch detection. Detection should still
+    // work by checking against origin/trunk.
+    let repo = TestRepo::new_with_remote();
+
+    // Create feature branch and push
+    repo.run_stax(&["bc", "feature-merged-diverged-trunk"]);
+    let branch_name = repo.current_branch();
+    repo.create_file("feature.txt", "feature work");
+    repo.commit("Feature work");
+    repo.git(&["push", "-u", "origin", &branch_name]);
+
+    // Merge feature branch on remote (simulates merged PR)
+    repo.merge_branch_on_remote(&branch_name);
+
+    // Create local-only commit on main so main diverges from origin/main
+    repo.run_stax(&["t"]);
+    repo.create_file("local-main-only.txt", "local commit");
+    repo.commit("Local main only commit");
+
+    // Go back to feature branch; sync will run non-trunk update path
+    repo.run_stax(&["checkout", &branch_name]);
+    assert!(repo.current_branch().contains("feature-merged-diverged-trunk"));
+
+    let output = repo.run_stax(&["sync", "--force"]);
+    assert!(
+        output.status.success(),
+        "Sync failed: {}",
+        TestRepo::stderr(&output)
+    );
+
+    // Branch should be deleted as merged even though local main diverged
+    let branches = repo.list_branches();
+    assert!(
+        !branches
+            .iter()
+            .any(|b| b.contains("feature-merged-diverged-trunk")),
+        "Expected merged branch to be deleted even with diverged local trunk"
+    );
+}
+
 // =============================================================================
 // Merge Command Tests
 // =============================================================================

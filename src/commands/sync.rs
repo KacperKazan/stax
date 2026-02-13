@@ -667,6 +667,7 @@ fn find_merged_branches(
     remote_name: &str,
 ) -> Result<Vec<String>> {
     let mut merged = Vec::new();
+    let remote_trunk_ref = format!("{}/{}", remote_name, stack.trunk);
 
     // Method 1: git branch --merged (finds local branches merged into trunk)
     let output = Command::new("git")
@@ -688,6 +689,30 @@ fn find_merged_branches(
         // Only include branches we're tracking
         if stack.branches.contains_key(branch) {
             merged.push(branch.to_string());
+        }
+    }
+
+    // Method 1b: git branch --merged origin/trunk (handles stale/diverged local trunk)
+    let output = Command::new("git")
+        .args(["branch", "--merged", &remote_trunk_ref])
+        .current_dir(workdir)
+        .output();
+
+    if let Ok(output) = output {
+        let merged_output = String::from_utf8_lossy(&output.stdout);
+
+        for line in merged_output.lines() {
+            let branch = line.trim().trim_start_matches("* ");
+
+            // Skip trunk itself and any non-tracked branches
+            if branch == stack.trunk || branch.is_empty() {
+                continue;
+            }
+
+            // Only include branches we're tracking (and avoid duplicates)
+            if stack.branches.contains_key(branch) && !merged.iter().any(|b| b == branch) {
+                merged.push(branch.to_string());
+            }
         }
     }
 
@@ -753,6 +778,36 @@ fn find_merged_branches(
         if let Ok(status) = diff_output {
             if status.success() {
                 // No diff = branch is effectively merged
+                merged.push(branch.clone());
+            }
+        }
+    }
+
+    // Method 3b: Empty diff against origin/trunk (handles stale/diverged local trunk)
+    for branch in stack.branches.keys() {
+        // Skip trunk
+        if branch == &stack.trunk {
+            continue;
+        }
+
+        // Skip if already in merged list
+        if merged.contains(branch) {
+            continue;
+        }
+
+        // Skip if branch doesn't exist locally (will be caught by orphan check)
+        if !local_branches.contains(branch) {
+            continue;
+        }
+
+        let diff_output = Command::new("git")
+            .args(["diff", "--quiet", &remote_trunk_ref, branch])
+            .current_dir(workdir)
+            .stderr(std::process::Stdio::null())
+            .status();
+
+        if let Ok(status) = diff_output {
+            if status.success() {
                 merged.push(branch.clone());
             }
         }
