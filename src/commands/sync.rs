@@ -703,8 +703,11 @@ fn find_merged_branches(
             continue;
         }
 
-        // Check if PR state is "merged"
-        if info.pr_state.as_deref() == Some("merged") {
+        // Check if PR state is "merged" (case-insensitive)
+        if matches!(
+            info.pr_state.as_deref(),
+            Some(state) if state.eq_ignore_ascii_case("merged")
+        ) {
             merged.push(branch.clone());
         }
     }
