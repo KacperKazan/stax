@@ -3,7 +3,7 @@ use crate::git::GitRepo;
 use anyhow::Result;
 use colored::Colorize;
 
-pub fn run(no_submit: bool, no_pr: bool) -> Result<()> {
+pub fn run(no_submit: bool, no_pr: bool, no_prs: bool) -> Result<()> {
     let repo = GitRepo::open()?;
     let original = repo.current_branch()?;
 
@@ -22,7 +22,10 @@ pub fn run(no_submit: bool, no_pr: bool) -> Result<()> {
         return Ok(());
     }
 
-    if !no_submit {
+    // no_prs is an alias for no_submit
+    let skip_submit = no_submit || no_prs;
+
+    if !skip_submit {
         commands::submit::run(
             commands::submit::SubmitScope::Stack,
             false,  // draft
@@ -40,6 +43,8 @@ pub fn run(no_submit: bool, no_pr: bool) -> Result<()> {
             false,  // edit
             false,  // ai_body
         )?;
+    } else if no_prs {
+        println!("{}", "Skipping PR submission (--no-prs flag)".dimmed());
     }
 
     if !repo.rebase_in_progress()? && repo.current_branch()? != original {

@@ -199,6 +199,7 @@ Split uses the transaction system, so you can `stax undo` if needed.
 | `stax rs` | Repo sync - pull trunk, clean up merged branches |
 | `stax rs --restack` | Sync and rebase all branches onto updated trunk |
 | `stax cascade` | Restack from bottom, upstack restack, and submit updates |
+| `stax cascade --no-prs` | Cascade restack only, skip PR submission |
 | `stax co` | Interactive branch checkout with fuzzy search |
 | `stax u` / `stax d` | Move up/down the stack |
 | `stax m` | Modify - stage all changes and amend current commit |
@@ -880,6 +881,8 @@ stax generate --pr-body --edit                               # Review in editor 
 - `stax merge --method squash` - Choose merge method (squash/merge/rebase)
 - `stax merge --dry-run` - Preview merge without executing
 - `stax merge --no-wait` - Don't wait for CI, fail if not ready
+- `stax cascade --no-prs` - Skip PR submission (restack only, alias for `--no-submit`)
+- `stax cascade --no-pr` - Push branches but don't create/update PRs
 - `stax sync --restack` - Sync and rebase all branches
 - `stax status --json` - Output as JSON
 - `stax undo --yes` - Undo without prompts
