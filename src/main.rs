@@ -190,6 +190,9 @@ enum Commands {
         /// Show detailed output including git errors
         #[arg(short, long)]
         verbose: bool,
+        /// Auto-stash and auto-pop dirty target worktrees during restack operations
+        #[arg(long)]
+        auto_stash_pop: bool,
     },
 
     /// Restack (rebase) the current branch onto its parent
@@ -203,19 +206,22 @@ enum Commands {
         /// Suppress extra output
         #[arg(long)]
         quiet: bool,
+        /// Auto-stash and auto-pop dirty target worktrees during restack operations
+        #[arg(long)]
+        auto_stash_pop: bool,
     },
 
     /// Restack from the bottom and submit updates
     Cascade {
-        /// Skip submit step (restack only)
-        #[arg(long)]
-        no_submit: bool,
-        /// Only push, don't create/update PRs
+        /// Push branches to remote but skip PR creation/updates
         #[arg(long)]
         no_pr: bool,
-        /// Skip PR submission entirely (alias for --no-submit)
+        /// Skip all remote interaction (restack locally only)
         #[arg(long)]
-        no_prs: bool,
+        no_submit: bool,
+        /// Auto-stash and auto-pop dirty target worktrees during restack
+        #[arg(long)]
+        auto_stash_pop: bool,
     },
 
     /// Checkout a branch in the stack
@@ -646,7 +652,11 @@ enum BranchCommands {
 #[derive(Subcommand)]
 enum UpstackCommands {
     /// Restack all branches above current
-    Restack,
+    Restack {
+        /// Auto-stash and auto-pop dirty target worktrees during restack operations
+        #[arg(long)]
+        auto_stash_pop: bool,
+    },
 
     /// Submit current branch and descendants
     Submit {
@@ -785,13 +795,24 @@ fn main() -> Result<()> {
             r#continue,
             quiet,
             verbose,
-        } => commands::sync::run(restack, !no_delete, force, safe, r#continue, quiet, verbose),
+            auto_stash_pop,
+        } => commands::sync::run(
+            restack,
+            !no_delete,
+            force,
+            safe,
+            r#continue,
+            quiet,
+            verbose,
+            auto_stash_pop,
+        ),
         Commands::Restack {
             all,
             r#continue,
             quiet,
-        } => commands::restack::run(all, r#continue, quiet),
-        Commands::Cascade { no_submit, no_pr, no_prs } => commands::cascade::run(no_submit, no_pr, no_prs),
+            auto_stash_pop,
+        } => commands::restack::run(all, r#continue, quiet, auto_stash_pop),
+        Commands::Cascade { no_pr, no_submit, auto_stash_pop } => commands::cascade::run(no_pr, no_submit, auto_stash_pop),
         Commands::Checkout {
             branch,
             trunk,
@@ -914,7 +935,9 @@ fn main() -> Result<()> {
             }
         },
         Commands::Upstack(cmd) => match cmd {
-            UpstackCommands::Restack => commands::upstack::restack::run(),
+            UpstackCommands::Restack { auto_stash_pop } => {
+                commands::upstack::restack::run(auto_stash_pop)
+            }
             UpstackCommands::Submit { submit } => {
                 run_submit(submit, commands::submit::SubmitScope::Upstack)
             }

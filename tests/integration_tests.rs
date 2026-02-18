@@ -3362,7 +3362,9 @@ fn test_sync_detects_merged_branch_when_local_trunk_diverged() {
 
     // Go back to feature branch; sync will run non-trunk update path
     repo.run_stax(&["checkout", &branch_name]);
-    assert!(repo.current_branch().contains("feature-merged-diverged-trunk"));
+    assert!(repo
+        .current_branch()
+        .contains("feature-merged-diverged-trunk"));
 
     let output = repo.run_stax(&["sync", "--force"]);
     assert!(

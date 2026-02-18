@@ -198,8 +198,12 @@ Split uses the transaction system, so you can `stax undo` if needed.
 | `stax merge` | Merge PRs from bottom of stack up to current branch |
 | `stax rs` | Repo sync - pull trunk, clean up merged branches |
 | `stax rs --restack` | Sync and rebase all branches onto updated trunk |
-| `stax cascade` | Restack from bottom, upstack restack, and submit updates |
-| `stax cascade --no-prs` | Cascade restack only, skip PR submission |
+| `stax restack --auto-stash-pop` | Restack even when target worktrees are dirty (auto-stash/pop) |
+| `stax rs --restack --auto-stash-pop` | Sync, restack, auto-stash/pop dirty worktrees |
+| `stax cascade` | Restack from bottom, push, and create/update PRs |
+| `stax cascade --no-pr` | Restack and push (skip PR creation/updates) |
+| `stax cascade --no-submit` | Restack only (no remote interaction) |
+| `stax cascade --auto-stash-pop` | Cascade even when target worktrees are dirty (auto-stash/pop) |
 | `stax co` | Interactive branch checkout with fuzzy search |
 | `stax u` / `stax d` | Move up/down the stack |
 | `stax m` | Modify - stage all changes and amend current commit |
@@ -283,6 +287,43 @@ stax changelog v1.0.0 --json
 ```
 
 PR numbers are automatically extracted from commit messages (GitHub's squash merge format: `(#123)`).
+
+## Multi-Worktree Support
+
+stax is worktree-aware. When you have branches checked out across multiple worktrees, restack, sync, and cascade all work correctly without requiring you to switch worktrees manually.
+
+### How it works
+
+- **Restack / upstack restack / sync `--restack`**: When a branch to be rebased is checked out in another worktree, stax runs `git rebase` inside that worktree instead of checking it out in the current one.
+- **Cascade**: Before restacking, stax fetches from remote and fast-forwards your local trunk — even if trunk is checked out in a different worktree. This prevents rebasing onto a stale local trunk, which would cause PRs to include commits already merged to remote.
+- **Sync trunk update**: If trunk is checked out in another worktree, stax pulls it there directly.
+
+### Dirty worktrees
+
+By default, stax fails fast if a target worktree has uncommitted changes, showing you the branch name and worktree path.
+
+Use `--auto-stash-pop` to let stax stash changes automatically before rebasing and restore them afterward:
+
+```bash
+stax restack --auto-stash-pop
+stax upstack restack --auto-stash-pop
+stax sync --restack --auto-stash-pop
+```
+
+If the rebase results in a conflict, the stash is kept intact so your changes are not lost. Run `git stash list` to find them.
+
+### Cascade flags
+
+| Command | Behavior |
+|---|---|
+| `stax cascade` | restack → push → create/update PRs |
+| `stax cascade --no-pr` | restack → push (skip PR creation/updates) |
+| `stax cascade --no-submit` | restack only (no remote interaction) |
+| `stax cascade --auto-stash-pop` | any of the above, auto-stash/pop dirty worktrees |
+
+Use `--no-pr` when your remote branches should be updated (pushed) but you aren't ready to open or update PRs yet — e.g. branches still in progress. Use `--no-submit` for a pure local restack with no network activity at all. Use `--auto-stash-pop` if any branch in the stack is checked out in a dirty worktree.
+
+> **Tip:** run `stax rs` before `stax cascade` to pull the latest trunk and avoid rebasing onto stale commits. If your local trunk is behind remote, `stax cascade` will warn you.
 
 ## Safe History Rewriting with Undo
 
@@ -807,6 +848,7 @@ stax generate --pr-body --edit                               # Review in editor 
 | `stax branch delete` | | Delete a branch |
 | `stax branch fold` | | Fold branch into parent |
 | `stax branch squash` | | Squash commits on branch |
+| `stax upstack restack` | | Restack current branch + descendants |
 | `stax upstack submit` | | Submit current branch + descendants |
 | `stax downstack submit` | | Submit ancestors + current branch |
 
@@ -881,8 +923,12 @@ stax generate --pr-body --edit                               # Review in editor 
 - `stax merge --method squash` - Choose merge method (squash/merge/rebase)
 - `stax merge --dry-run` - Preview merge without executing
 - `stax merge --no-wait` - Don't wait for CI, fail if not ready
-- `stax cascade --no-prs` - Skip PR submission (restack only, alias for `--no-submit`)
-- `stax cascade --no-pr` - Push branches but don't create/update PRs
+- `stax restack --auto-stash-pop` - Auto-stash/pop dirty target worktrees during restack
+- `stax upstack restack --auto-stash-pop` - Auto-stash/pop when restacking descendants
+- `stax rs --restack --auto-stash-pop` - Sync, restack, auto-stash/pop dirty worktrees (`rs` = sync alias)
+- `stax cascade --no-pr` - Restack and push branches; skip PR creation/updates
+- `stax cascade --no-submit` - Restack only, no remote interaction
+- `stax cascade --auto-stash-pop` - Auto-stash/pop dirty target worktrees during cascade restack
 - `stax sync --restack` - Sync and rebase all branches
 - `stax status --json` - Output as JSON
 - `stax undo --yes` - Undo without prompts
