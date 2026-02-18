@@ -2,6 +2,7 @@ use anyhow::{Context, Result};
 use serde::{Deserialize, Serialize};
 use std::fs;
 use std::path::PathBuf;
+use std::process::Command;
 
 /// Main config (safe to commit to dotfiles)
 #[derive(Debug, Serialize, Deserialize, Default)]
@@ -14,6 +15,8 @@ pub struct Config {
     pub ui: UiConfig,
     #[serde(default)]
     pub ai: AiConfig,
+    #[serde(default)]
+    pub auth: AuthConfig,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -76,6 +79,50 @@ pub struct AiConfig {
     pub model: Option<String>,
 }
 
+#[derive(Debug, Serialize, Deserialize)]
+pub struct AuthConfig {
+    /// Whether to use `gh auth token` as a fallback auth source (default: true)
+    #[serde(default = "default_use_gh_cli")]
+    pub use_gh_cli: bool,
+    /// Whether to allow ambient GITHUB_TOKEN env var (default: false)
+    #[serde(default = "default_allow_github_token_env")]
+    pub allow_github_token_env: bool,
+    /// Optional GitHub hostname for `gh auth token --hostname` (enterprise)
+    #[serde(default)]
+    pub gh_hostname: Option<String>,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum GitHubAuthSource {
+    StaxGithubTokenEnv,
+    CredentialsFile,
+    GhCli,
+    GithubTokenEnv,
+}
+
+impl GitHubAuthSource {
+    pub fn display_name(self) -> &'static str {
+        match self {
+            Self::StaxGithubTokenEnv => "STAX_GITHUB_TOKEN",
+            Self::CredentialsFile => "credentials file (~/.config/stax/.credentials)",
+            Self::GhCli => "gh auth token",
+            Self::GithubTokenEnv => "GITHUB_TOKEN",
+        }
+    }
+}
+
+#[derive(Debug, Clone)]
+pub struct GitHubAuthStatus {
+    pub active_source: Option<GitHubAuthSource>,
+    pub stax_env_available: bool,
+    pub credentials_file_available: bool,
+    pub gh_cli_available: bool,
+    pub github_env_available: bool,
+    pub use_gh_cli: bool,
+    pub allow_github_token_env: bool,
+    pub gh_hostname: Option<String>,
+}
+
 impl Default for BranchConfig {
     fn default() -> Self {
         Self {
@@ -111,6 +158,16 @@ impl Default for UiConfig {
     }
 }
 
+impl Default for AuthConfig {
+    fn default() -> Self {
+        Self {
+            use_gh_cli: default_use_gh_cli(),
+            allow_github_token_env: default_allow_github_token_env(),
+            gh_hostname: None,
+        }
+    }
+}
+
 fn default_replacement() -> String {
     "-".to_string()
 }
@@ -125,6 +182,14 @@ fn default_remote_base_url() -> String {
 
 fn default_tips() -> bool {
     true
+}
+
+fn default_use_gh_cli() -> bool {
+    true
+}
+
+fn default_allow_github_token_env() -> bool {
+    false
 }
 
 impl Config {
@@ -178,33 +243,54 @@ impl Config {
         Ok(())
     }
 
-    /// Get GitHub token (from env var or credentials file)
-    /// Priority: 1. STAX_GITHUB_TOKEN, 2. GITHUB_TOKEN, 3. credentials file
+    /// Get GitHub token (from env var, credentials file, or gh cli)
+    /// Priority:
+    /// 1. STAX_GITHUB_TOKEN
+    /// 2. credentials file (~/.config/stax/.credentials)
+    /// 3. gh auth token (if auth.use_gh_cli = true)
+    /// 4. GITHUB_TOKEN (if auth.allow_github_token_env = true)
     pub fn github_token() -> Option<String> {
-        // First try stax-specific env var
-        if let Ok(token) = std::env::var("STAX_GITHUB_TOKEN") {
-            if !token.is_empty() {
-                return Some(token);
-            }
-        }
-        // Then try generic GitHub token
-        if let Ok(token) = std::env::var("GITHUB_TOKEN") {
-            if !token.is_empty() {
-                return Some(token);
-            }
-        }
+        let auth_config = Self::load().map(|c| c.auth).unwrap_or_default();
+        Self::resolve_github_auth_with_config(&auth_config).map(|(_, token)| token)
+    }
 
-        // Then try credentials file
-        if let Ok(path) = Self::credentials_path() {
-            if let Ok(token) = fs::read_to_string(path) {
-                let token = token.trim();
-                if !token.is_empty() {
-                    return Some(token.to_string());
-                }
-            }
-        }
+    pub fn github_auth_status() -> GitHubAuthStatus {
+        let auth_config = Self::load().map(|c| c.auth).unwrap_or_default();
 
-        None
+        let stax_env_available = Self::read_env_token("STAX_GITHUB_TOKEN").is_some();
+        let credentials_file_available = Self::token_from_credentials_file().is_some();
+        let gh_cli_available = if auth_config.use_gh_cli {
+            Self::token_from_gh_cli(auth_config.gh_hostname.as_deref())
+                .ok()
+                .flatten()
+                .is_some()
+        } else {
+            false
+        };
+        let github_env_available = Self::read_env_token("GITHUB_TOKEN").is_some();
+
+        let active_source = if stax_env_available {
+            Some(GitHubAuthSource::StaxGithubTokenEnv)
+        } else if credentials_file_available {
+            Some(GitHubAuthSource::CredentialsFile)
+        } else if auth_config.use_gh_cli && gh_cli_available {
+            Some(GitHubAuthSource::GhCli)
+        } else if auth_config.allow_github_token_env && github_env_available {
+            Some(GitHubAuthSource::GithubTokenEnv)
+        } else {
+            None
+        };
+
+        GitHubAuthStatus {
+            active_source,
+            stax_env_available,
+            credentials_file_available,
+            gh_cli_available,
+            github_env_available,
+            use_gh_cli: auth_config.use_gh_cli,
+            allow_github_token_env: auth_config.allow_github_token_env,
+            gh_hostname: auth_config.gh_hostname,
+        }
     }
 
     /// Set GitHub token (to credentials file)
@@ -224,6 +310,84 @@ impl Config {
         }
 
         Ok(())
+    }
+
+    /// Read token from gh CLI for explicit import (`stax auth --from-gh`).
+    pub fn gh_cli_token_for_import() -> Result<String> {
+        let auth_config = Self::load().map(|c| c.auth).unwrap_or_default();
+
+        Self::token_from_gh_cli(auth_config.gh_hostname.as_deref())?.context(
+            "Could not read token from `gh auth token`.\n\
+             Ensure GitHub CLI is installed and authenticated (`gh auth login`).",
+        )
+    }
+
+    fn read_env_token(var_name: &str) -> Option<String> {
+        std::env::var(var_name)
+            .ok()
+            .and_then(|value| Self::normalize_token(value.as_str()))
+    }
+
+    fn token_from_credentials_file() -> Option<String> {
+        let path = Self::credentials_path().ok()?;
+        let token = fs::read_to_string(path).ok()?;
+        Self::normalize_token(token.as_str())
+    }
+
+    fn token_from_gh_cli(hostname: Option<&str>) -> Result<Option<String>> {
+        let mut command = Command::new("gh");
+        command.args(["auth", "token"]);
+        if let Some(host) = hostname.and_then(Self::normalize_token) {
+            command.args(["--hostname", host.as_str()]);
+        }
+
+        let output = match command.output() {
+            Ok(output) => output,
+            Err(err) if err.kind() == std::io::ErrorKind::NotFound => return Ok(None),
+            Err(err) => return Err(err).context("Failed to execute `gh auth token`"),
+        };
+
+        if !output.status.success() {
+            return Ok(None);
+        }
+
+        let token = String::from_utf8_lossy(&output.stdout);
+        Ok(Self::normalize_token(token.as_ref()))
+    }
+
+    fn normalize_token(token: &str) -> Option<String> {
+        let trimmed = token.trim();
+        if trimmed.is_empty() {
+            None
+        } else {
+            Some(trimmed.to_string())
+        }
+    }
+
+    fn resolve_github_auth_with_config(
+        auth_config: &AuthConfig,
+    ) -> Option<(GitHubAuthSource, String)> {
+        if let Some(token) = Self::read_env_token("STAX_GITHUB_TOKEN") {
+            return Some((GitHubAuthSource::StaxGithubTokenEnv, token));
+        }
+
+        if let Some(token) = Self::token_from_credentials_file() {
+            return Some((GitHubAuthSource::CredentialsFile, token));
+        }
+
+        if auth_config.use_gh_cli {
+            if let Ok(Some(token)) = Self::token_from_gh_cli(auth_config.gh_hostname.as_deref()) {
+                return Some((GitHubAuthSource::GhCli, token));
+            }
+        }
+
+        if auth_config.allow_github_token_env {
+            if let Some(token) = Self::read_env_token("GITHUB_TOKEN") {
+                return Some((GitHubAuthSource::GithubTokenEnv, token));
+            }
+        }
+
+        None
     }
 
     /// Format a branch name according to config settings
@@ -359,13 +523,15 @@ impl Config {
     }
 
     /// Get the username for branch naming
-    /// Priority: 1. config.branch.user, 2. git config user.name, 3. empty string
+    /// Priority: 1. config.branch.user (explicit empty disables fallback),
+    /// 2. git config user.name, 3. empty string
     fn get_user_for_branch(&self) -> String {
         // First check config
         if let Some(ref user) = self.branch.user {
-            if !user.is_empty() {
-                return self.sanitize_branch_segment(user);
+            if user.is_empty() {
+                return String::new();
             }
+            return self.sanitize_branch_segment(user);
         }
 
         // Then try git config user.name

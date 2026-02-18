@@ -258,8 +258,13 @@ enum Commands {
     /// Authenticate with GitHub
     Auth {
         /// GitHub personal access token
-        #[arg(short, long)]
+        #[arg(short, long, conflicts_with = "from_gh")]
         token: Option<String>,
+        /// Import token from GitHub CLI (`gh auth token`)
+        #[arg(long)]
+        from_gh: bool,
+        #[command(subcommand)]
+        command: Option<AuthSubcommand>,
     },
 
     /// Show config file path and contents
@@ -511,6 +516,12 @@ enum Commands {
     },
 }
 
+#[derive(Subcommand, Clone)]
+enum AuthSubcommand {
+    /// Show which auth source is currently active
+    Status,
+}
+
 #[derive(Subcommand)]
 enum BranchCommands {
     /// Create a new branch stacked on current
@@ -718,8 +729,18 @@ fn main() -> Result<()> {
 
     // Commands that don't need repo initialization
     match &command {
-        Commands::Auth { token } => {
-            let result = commands::auth::run(token.clone());
+        Commands::Auth {
+            token,
+            from_gh,
+            command,
+        } => {
+            if command.is_some() && (token.is_some() || *from_gh) {
+                anyhow::bail!("`stax auth status` cannot be combined with --token or --from-gh.");
+            }
+            let result = match command {
+                Some(AuthSubcommand::Status) => commands::auth::status(),
+                None => commands::auth::run(token.clone(), *from_gh),
+            };
             update::show_update_notification();
             update::check_in_background();
             return result;
@@ -812,7 +833,11 @@ fn main() -> Result<()> {
             quiet,
             auto_stash_pop,
         } => commands::restack::run(all, r#continue, quiet, auto_stash_pop),
-        Commands::Cascade { no_pr, no_submit, auto_stash_pop } => commands::cascade::run(no_pr, no_submit, auto_stash_pop),
+        Commands::Cascade {
+            no_pr,
+            no_submit,
+            auto_stash_pop,
+        } => commands::cascade::run(no_pr, no_submit, auto_stash_pop),
         Commands::Checkout {
             branch,
             trunk,

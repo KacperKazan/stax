@@ -62,26 +62,39 @@ Both `stax` and `st` (short alias) are installed automatically. All examples bel
 
 ## Quick Start
 
+Set up GitHub auth first (required for PR creation, CI checks, and review metadata):
+
 ```bash
-# 1. Authenticate with GitHub
+# Option A (recommended): use GitHub CLI auth
+gh auth login
+stax auth --from-gh
+
+# Option B: enter a personal access token manually
 stax auth
 
-# 2. Create stacked branches
+# Option C: provide a stax-specific env var
+export STAX_GITHUB_TOKEN="ghp_xxxx"
+```
+
+By default, stax does not use ambient `GITHUB_TOKEN` unless you opt in via `[auth].allow_github_token_env = true` in config.
+
+```bash
+# 1. Create stacked branches
 stax create auth-api           # First branch off main
 stax create auth-ui            # Second branch, stacked on first
 
-# 3. View your stack
+# 2. View your stack
 stax ls
 # ◉  auth-ui 1↑                ← you are here
 # ○  auth-api 1↑
 # ○  main
 
-# 4. Submit PRs for the whole stack
+# 3. Submit PRs for the whole stack
 stax ss
 # Creating PR for auth-api... ✓ #12 (targets main)
 # Creating PR for auth-ui... ✓ #13 (targets auth-api)
 
-# 5. After reviews, sync and rebase
+# 4. After reviews, sync and rebase
 stax rs --restack
 ```
 
@@ -651,6 +664,16 @@ Config at `~/.config/stax/config.toml`:
 # API base URL for GitHub Enterprise
 # api_base_url = "https://github.company.com/api/v3"
 
+[auth]
+# Use `gh auth token` as a fallback auth source (default: true)
+# use_gh_cli = true
+
+# Allow ambient GITHUB_TOKEN env var (default: false)
+# allow_github_token_env = false
+
+# Optional hostname for gh auth token (GitHub Enterprise)
+# gh_hostname = "github.company.com"
+
 [ui]
 # Show contextual tips/suggestions (default: true)
 # tips = true
@@ -682,21 +705,39 @@ Empty placeholders are cleaned up automatically. The legacy `prefix` field still
 stax looks for a GitHub token in the following order (first found wins):
 
 1. `STAX_GITHUB_TOKEN` environment variable
-2. `GITHUB_TOKEN` environment variable
-3. Credentials file (`~/.config/stax/.credentials`)
+2. Credentials file (`~/.config/stax/.credentials`)
+3. `gh auth token` (when `auth.use_gh_cli = true`, default)
+4. `GITHUB_TOKEN` environment variable (only when `auth.allow_github_token_env = true`)
 
 ```bash
 # Option 1: stax-specific env var (highest priority)
 export STAX_GITHUB_TOKEN="ghp_xxxx"
 
-# Option 2: Standard GitHub env var (works with other tools too)
-export GITHUB_TOKEN="ghp_xxxx"
-
-# Option 3: Interactive setup (saves to credentials file)
+# Option 2: Interactive setup (saves to credentials file)
 stax auth
+
+# Option 3: Import from GitHub CLI auth (saves to credentials file)
+stax auth --from-gh
+```
+
+To use `GITHUB_TOKEN` as a fallback, opt in explicitly:
+
+```toml
+[auth]
+allow_github_token_env = true
+```
+
+```bash
+export GITHUB_TOKEN="ghp_xxxx"
 ```
 
 The credentials file is created with `600` permissions (read/write for owner only).
+
+Check which source stax is actively using:
+
+```bash
+stax auth status
+```
 
 ## Claude Code Integration
 
@@ -878,7 +919,8 @@ stax generate --pr-body --edit                               # Review in editor 
 ### Utilities
 | Command | Description |
 |---------|-------------|
-| `stax auth` | Set GitHub token |
+| `stax auth` | Set GitHub token (`--from-gh` supported) |
+| `stax auth status` | Show active GitHub auth source and resolution order |
 | `stax config` | Show configuration |
 | `stax doctor` | Check repo health |
 | `stax continue` | Continue after resolving conflicts |
