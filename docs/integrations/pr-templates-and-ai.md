@@ -36,11 +36,29 @@ Generate and update PR body based on diff, commits, and template:
 stax generate --pr-body
 ```
 
+### Prerequisites
+
+- Current branch must be tracked by stax
+- Current branch must already have a PR (for example created via `stax submit` / `stax ss`)
+
+If no PR exists yet, submit first:
+
+```bash
+stax ss
+stax generate --pr-body
+```
+
 ### Options
 
 - `--agent <name>` override configured agent for one run
 - `--model <name>` override model for one run
 - `--edit` review/edit generated body before update
+
+You can also generate during submit:
+
+```bash
+stax submit --ai-body
+```
 
 ```bash
 stax generate --pr-body --agent codex

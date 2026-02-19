@@ -152,14 +152,20 @@ stax
 
 | Key | Action |
 |-----|--------|
-| `↑/↓` | Navigate branches |
+| `j/k` or `↑/↓` | Navigate branches |
 | `Enter` | Checkout branch |
 | `r` | Restack selected branch |
+| `R` (Shift+r) | Restack all branches in stack |
 | `s` | Submit stack |
+| `p` | Open selected branch PR |
 | `o` | Enter reorder mode (reparent branches) |
 | `n` | Create new branch |
+| `e` | Rename current branch |
 | `d` | Delete branch |
+| `/` | Search/filter branches |
+| `Tab` | Toggle focus between stack and diff panes |
 | `?` | Show all keybindings |
+| `q/Esc` | Quit |
 
 ### Reorder Mode
 
@@ -195,6 +201,7 @@ stax split
 | `j/k` or `↑/↓` | Navigate commits |
 | `s` | Mark split point at cursor (enter branch name) |
 | `d` | Remove split point at cursor |
+| `S-J/K` | Move split point down/up |
 | `Enter` | Execute split |
 | `?` | Show help |
 | `q/Esc` | Cancel and quit |
@@ -217,6 +224,7 @@ Split uses the transaction system, so you can `stax undo` if needed.
 |---------|--------------|
 | `stax` | Launch interactive TUI |
 | `stax ls` | Show your stack with PR status and what needs rebasing |
+| `stax ll` | Show stack with PR URLs and full details |
 | `stax create <name>` | Create a new branch stacked on current |
 | `stax ss` | Submit stack - push all branches and create/update PRs |
 | `stax merge` | Merge PRs from bottom of stack up to current branch |
@@ -232,6 +240,7 @@ Split uses the transaction system, so you can `stax undo` if needed.
 | `stax u` / `stax d` | Move up/down the stack |
 | `stax m` | Modify - stage all changes and amend current commit |
 | `stax pr` | Open current branch's PR in browser |
+| `stax open` | Open repository in browser |
 | `stax copy` | Copy branch name to clipboard |
 | `stax copy --pr` | Copy PR URL to clipboard |
 | `stax standup` | Show your recent activity for standups |
@@ -852,6 +861,16 @@ stax generate --pr-body
 
 stax collects the diff, commit messages, and PR template for the current branch, sends them to an AI agent (Claude or Codex CLI), and updates the PR body on GitHub.
 
+Prerequisites:
+- Current branch must be tracked by stax
+- Current branch must already have a PR (create one with `stax submit` / `stax ss`)
+
+You can also generate during submit:
+
+```bash
+stax submit --ai-body
+```
+
 ### First Run
 
 If no AI agent is configured, stax auto-detects what's installed and walks you through setup:
@@ -891,6 +910,7 @@ stax generate --pr-body --edit                               # Review in editor 
 | Command | Alias | Description |
 |---------|-------|-------------|
 | `stax status` | `s`, `ls` | Show stack (simple view) |
+| `stax ll` | | Show stack with PR URLs and full details |
 | `stax log` | `l` | Show stack with commits and PR info |
 | `stax submit` | `ss` | Submit full current stack (ancestors + current + descendants) |
 | `stax merge` | | Merge PRs from bottom of stack to current |
@@ -916,6 +936,7 @@ stax generate --pr-body --edit                               # Review in editor 
 | `stax branch squash` | | Squash commits on branch |
 | `stax upstack restack` | | Restack current branch + descendants |
 | `stax upstack submit` | | Submit current branch + descendants |
+| `stax downstack get` | | Show branches below current |
 | `stax downstack submit` | | Submit ancestors + current branch |
 
 ### Navigation
@@ -950,6 +971,7 @@ stax generate --pr-body --edit                               # Review in editor 
 | `stax doctor` | Check repo health |
 | `stax continue` | Continue after resolving conflicts |
 | `stax pr` | Open PR in browser |
+| `stax open` | Open repository in browser |
 | `stax ci` | Show CI status for branches in current stack |
 | `stax ci --all` | Show CI status for all tracked branches |
 | `stax ci --watch` | Watch CI until completion (polls every 15s, records history) |
@@ -972,34 +994,66 @@ stax generate --pr-body --edit                               # Review in editor 
 - `stax create -m "msg"` - Create branch with commit message
 - `stax create -a` - Stage all changes
 - `stax create -am "msg"` - Stage all and commit
+- `stax branch create --message "msg" --prefix feature/` - Create with explicit message and prefix
+- `stax branch reparent --branch feature-a --parent main` - Reparent a specific branch
 - `stax rename new-name` - Rename current branch
 - `stax rename -e` - Rename and edit commit message
+- `stax branch rename --push` - Rename and update remote branch in one step
+- `stax branch squash --message "Squashed commit"` - Squash branch commits with explicit message
+- `stax branch fold --keep` - Fold branch into parent but keep branch
 - `stax submit --draft` - Create PRs as drafts
 - `stax branch submit` / `stax bs` - Submit current branch only
 - `stax upstack submit` - Submit current branch and descendants
 - `stax downstack submit` - Submit ancestors and current branch
 - `stax submit --yes` - Auto-approve prompts
+- `stax submit --no-pr` - Push branches only, skip PR creation/updates
+- `stax submit --force` - Submit even when restack check fails
 - `stax submit --no-prompt` - Use defaults, skip interactive prompts
 - `stax submit --template <name>` - Use specific template by name (skip picker)
 - `stax submit --no-template` - Skip template selection (no template)
 - `stax submit --edit` - Always open editor for PR body
+- `stax submit --ai-body` - Generate PR body with AI during submit
 - `stax submit --reviewers alice,bob` - Add reviewers
 - `stax submit --labels bug,urgent` - Add labels
 - `stax submit --assignees alice` - Assign users
+- `stax submit --quiet` - Minimize submit output
+- `stax submit --verbose` - Show detailed submit output
 - `stax merge --all` - Merge entire stack
 - `stax merge --method squash` - Choose merge method (squash/merge/rebase)
 - `stax merge --dry-run` - Preview merge without executing
 - `stax merge --no-wait` - Don't wait for CI, fail if not ready
+- `stax merge --no-delete` - Keep branches after merge
+- `stax merge --timeout 60` - Wait up to 60 minutes for CI per PR
+- `stax merge --quiet` - Minimize merge output
 - `stax restack --auto-stash-pop` - Auto-stash/pop dirty target worktrees during restack
+- `stax restack --all` - Restack all branches in current stack
+- `stax restack --continue` - Continue after resolving restack conflicts
+- `stax restack --quiet` - Minimize restack output
 - `stax upstack restack --auto-stash-pop` - Auto-stash/pop when restacking descendants
 - `stax rs --restack --auto-stash-pop` - Sync, restack, auto-stash/pop dirty worktrees (`rs` = sync alias)
+- `stax sync --force` - Force sync without prompts
+- `stax sync --safe` - Avoid hard reset when updating trunk
+- `stax sync --continue` - Continue after resolving sync/restack conflicts
+- `stax sync --quiet` - Minimize sync output
+- `stax sync --verbose` - Show detailed sync output
 - `stax cascade --no-pr` - Restack and push branches; skip PR creation/updates
 - `stax cascade --no-submit` - Restack only, no remote interaction
 - `stax cascade --auto-stash-pop` - Auto-stash/pop dirty target worktrees during cascade restack
 - `stax sync --restack` - Sync and rebase all branches
+- `stax status --stack <branch>` - Show only one stack
+- `stax status --current` - Show only current stack
+- `stax status --compact` - Compact output
 - `stax status --json` - Output as JSON
+- `stax log --stack <branch> --current --compact --json` - Filter log output
+- `stax checkout --trunk` - Jump directly to trunk
+- `stax checkout --parent` - Jump to parent branch
+- `stax checkout --child 1` - Jump to first child branch
+- `stax ci --refresh` - Bypass CI cache
 - `stax undo --yes` - Undo without prompts
 - `stax undo --no-push` - Undo locally only, skip remote
+- `stax undo --quiet` - Minimize undo output
+- `stax redo --quiet` - Minimize redo output
+- `stax auth --token <token>` - Set GitHub token directly
 - `stax generate --pr-body --edit` - Generate and review in editor
 - `stax generate --pr-body --agent codex` - Use specific AI agent
 - `stax generate --pr-body --model claude-haiku-4-5-20251001` - Use specific model

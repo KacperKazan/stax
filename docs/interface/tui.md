@@ -19,14 +19,20 @@ stax
 
 | Key | Action |
 |---|---|
-| `↑/↓` | Navigate branches |
+| `j/k` or `↑/↓` | Navigate branches |
 | `Enter` | Checkout branch |
 | `r` | Restack selected branch |
+| `R` (Shift+r) | Restack all branches in stack |
 | `s` | Submit stack |
+| `p` | Open selected branch PR |
 | `o` | Enter reorder mode |
 | `n` | Create branch |
+| `e` | Rename current branch |
 | `d` | Delete branch |
+| `/` | Search/filter branches |
+| `Tab` | Toggle focus between stack and diff panes |
 | `?` | Show keybindings |
+| `q`/`Esc` | Quit |
 
 ## Reorder Mode
 
@@ -50,7 +56,9 @@ stax split
 | `j/k` or `↑/↓` | Navigate commits |
 | `s` | Add split point at cursor |
 | `d` | Remove split point |
+| `S-J/K` | Move split point down/up |
 | `Enter` | Execute split |
+| `?` | Toggle help |
 | `q`/`Esc` | Cancel |
 
 Split operations are transactional and recoverable with `stax undo`.
