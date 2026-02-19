@@ -52,13 +52,24 @@ stax is a modern stacked-branch workflow that keeps PRs small, rebases safe, and
 
 ```bash
 # Homebrew (macOS/Linux)
-brew tap cesarferreira/tap && brew install stax
+brew install cesarferreira/tap/stax
 
 # Or with cargo binstall
 cargo binstall stax
 ```
 
 Both `stax` and `st` (short alias) are installed automatically. All examples below use `stax`, but `st` works identically.
+
+## Full Documentation
+
+- Live docs: https://cesarferreira.github.io/stax/
+- Source docs index: [docs/index.md](docs/index.md)
+
+Run docs locally with `uv`:
+
+```bash
+uv run --with-requirements docs/requirements.txt zensical serve
+```
 
 ## Quick Start
 
@@ -752,6 +763,20 @@ curl -o ~/.claude/skills/stax.md https://raw.githubusercontent.com/cesarferreira
 ```
 
 This enables Claude Code to help you with stax workflows, create stacked branches, submit PRs, and more.
+
+## Codex Integration
+
+Teach Codex how to use stax by installing the skill file into your Codex skills directory:
+
+```bash
+# Create skills directory if it doesn't exist
+mkdir -p "${CODEX_HOME:-$HOME/.codex}/skills/stax"
+
+# Download the stax skill file
+curl -o "${CODEX_HOME:-$HOME/.codex}/skills/stax/SKILL.md" https://raw.githubusercontent.com/cesarferreira/stax/main/skills.md
+```
+
+This enables Codex to help you with stax workflows, create stacked branches, submit PRs, and more.
 
 ## Freephite/Graphite Compatibility
 
