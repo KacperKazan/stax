@@ -31,7 +31,12 @@ const CODEX_MODELS: &[(&str, &str)] = &[
     ("gpt-4.1-mini", "GPT-4.1 Mini"),
 ];
 
-const SUPPORTED_AGENTS: &[&str] = &["claude", "codex"];
+const GEMINI_MODELS: &[(&str, &str)] = &[
+    ("gemini-2.5-pro", "Gemini 2.5 Pro (default)"),
+    ("gemini-2.5-flash", "Gemini 2.5 Flash (faster, cheaper)"),
+];
+
+const SUPPORTED_AGENTS: &[&str] = &["claude", "codex", "gemini"];
 
 // ---------------------------------------------------------------------------
 // Public entry point
@@ -186,6 +191,7 @@ fn resolve_agent(cli_flag: Option<&str>, config: &mut Config) -> Result<String> 
                  Install one of:\n    \
                  - claude (https://docs.anthropic.com)\n    \
                  - codex  (https://github.com/openai/codex)\n  \
+                 - gemini (https://github.com/google-gemini/gemini-cli)\n  \
                  Or set manually in ~/.config/stax/config.toml:\n    \
                  [ai]\n    \
                  agent = \"claude\""
@@ -312,6 +318,20 @@ fn resolve_model(cli_flag: Option<&str>, config: &Config, agent: &str) -> Result
     // 2. Config value
     if let Some(ref model) = config.ai.model {
         if !model.is_empty() {
+            // If config model is a known model for a different agent, ignore it and
+            // fall back to the selected agent default.
+            if let Some(model_agent) = known_agent_for_model(model) {
+                if model_agent != agent {
+                    eprintln!(
+                        "  {} Configured model '{}' is for agent '{}', but current agent is '{}'. Using agent default.",
+                        "⚠".yellow(),
+                        model.yellow(),
+                        model_agent,
+                        agent
+                    );
+                    return Ok(None);
+                }
+            }
             validate_model_soft(agent, model);
             return Ok(Some(model.clone()));
         }
@@ -357,8 +377,15 @@ fn known_models_for(agent: &str) -> &'static [(&'static str, &'static str)] {
     match agent {
         "claude" => CLAUDE_MODELS,
         "codex" => CODEX_MODELS,
+        "gemini" => GEMINI_MODELS,
         _ => &[],
     }
+}
+
+fn known_agent_for_model(model: &str) -> Option<&'static str> {
+    ["claude", "codex", "gemini"]
+        .into_iter()
+        .find(|agent| known_models_for(agent).iter().any(|(id, _)| *id == model))
 }
 
 // ---------------------------------------------------------------------------
@@ -504,6 +531,11 @@ pub fn invoke_ai_agent(agent: &str, model: Option<&str>, prompt: &str) -> Result
                 args.extend(["--model".into(), m.into()]);
             }
         }
+        "gemini" => {
+            if let Some(m) = model {
+                args.extend(["-m".into(), m.into()]);
+            }
+        }
         _ => bail!("Unsupported agent: {}", agent),
     }
 
@@ -542,4 +574,39 @@ pub fn invoke_ai_agent(agent: &str, model: Option<&str>, prompt: &str) -> Result
 
     let body = String::from_utf8_lossy(&output.stdout).trim().to_string();
     Ok(body)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn validate_agent_name_accepts_gemini() {
+        assert!(validate_agent_name("gemini").is_ok());
+    }
+
+    #[test]
+    fn known_models_include_gemini_defaults() {
+        let models = known_models_for("gemini");
+        assert!(models.iter().any(|(id, _)| *id == "gemini-2.5-pro"));
+        assert!(models.iter().any(|(id, _)| *id == "gemini-2.5-flash"));
+    }
+
+    #[test]
+    fn resolve_model_ignores_known_model_from_other_agent() {
+        let mut config = Config::default();
+        config.ai.model = Some("gpt-5.3-codex".to_string());
+
+        let resolved = resolve_model(None, &config, "gemini").unwrap();
+        assert_eq!(resolved, None);
+    }
+
+    #[test]
+    fn resolve_model_keeps_unknown_custom_model() {
+        let mut config = Config::default();
+        config.ai.model = Some("my-custom-model".to_string());
+
+        let resolved = resolve_model(None, &config, "gemini").unwrap();
+        assert_eq!(resolved, Some("my-custom-model".to_string()));
+    }
 }
